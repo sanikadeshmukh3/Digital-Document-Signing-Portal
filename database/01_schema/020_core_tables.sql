@@ -183,6 +183,7 @@ CREATE TABLE Document (
 --   VersionNumber must be unique within a Document.
 -- ============================================================
 
+// weak entity: DocumentVersion is a weak entity whose existence depends on the owning Document.
 CREATE TABLE DocumentVersion (
     DocumentVersionID BIGINT UNSIGNED AUTO_INCREMENT,
 
@@ -197,17 +198,20 @@ CREATE TABLE DocumentVersion (
 
     CreatedByUserID BIGINT UNSIGNED NOT NULL,
 
-    -- Implements TDD attribute: CurrentVersionStatus.
-    -- References controlled reference data.
     CurrentVersionStatusID BIGINT UNSIGNED NOT NULL,
 
     LockedDateTime DATETIME NULL,
 
+    -- DocumentVersion is modeled as a weak entity.
+    -- VersionNumber is a partial key whose meaning depends on
+    -- the owning Document.
     CONSTRAINT pk_DocumentVersion
-        PRIMARY KEY (DocumentVersionID),
+        PRIMARY KEY (DocumentID, VersionNumber),
 
-    CONSTRAINT uq_DocumentVersion_Document_Version
-        UNIQUE (DocumentID, VersionNumber),
+    -- Retain the TDD-defined technical identifier as an
+    -- alternate unique identifier.
+    CONSTRAINT uq_DocumentVersion_ID
+        UNIQUE (DocumentVersionID),
 
     CONSTRAINT chk_DocumentVersion_VersionNumber
         CHECK (VersionNumber > 0)

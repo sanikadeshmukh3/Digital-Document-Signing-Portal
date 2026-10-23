@@ -83,16 +83,6 @@ ALTER TABLE DocumentVersion
         ON DELETE RESTRICT;
 
 
--- ------------------------------------------------------------
--- Allows Workflow to enforce that its DocumentID and
--- DocumentVersionID refer to the same DocumentVersion record.
--- ------------------------------------------------------------
-
-ALTER TABLE DocumentVersion
-    ADD CONSTRAINT uq_DocumentVersion_ID_Document
-        UNIQUE (DocumentVersionID, DocumentID);
-
-
 -- ============================================================
 -- 4. Workflow relationships
 -- ============================================================
@@ -104,9 +94,9 @@ ALTER TABLE Workflow
         ON UPDATE RESTRICT
         ON DELETE RESTRICT,
 
-    ADD CONSTRAINT fk_Workflow_DocumentVersionContext
-        FOREIGN KEY (DocumentVersionID, DocumentID)
-        REFERENCES DocumentVersion (DocumentVersionID, DocumentID)
+    ADD CONSTRAINT fk_Workflow_DocumentVersion
+        FOREIGN KEY (DocumentVersionID)
+        REFERENCES DocumentVersion (DocumentVersionID)
         ON UPDATE RESTRICT
         ON DELETE RESTRICT,
 
