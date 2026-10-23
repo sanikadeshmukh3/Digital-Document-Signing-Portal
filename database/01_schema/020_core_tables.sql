@@ -183,7 +183,6 @@ CREATE TABLE Document (
 --   VersionNumber must be unique within a Document.
 -- ============================================================
 
-// weak entity: DocumentVersion is a weak entity whose existence depends on the owning Document.
 CREATE TABLE DocumentVersion (
     DocumentVersionID BIGINT UNSIGNED AUTO_INCREMENT,
 
