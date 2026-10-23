@@ -1,0 +1,13 @@
+# Local database credentials
+build/.env
+
+# Build workspace and logs
+.build-work/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
