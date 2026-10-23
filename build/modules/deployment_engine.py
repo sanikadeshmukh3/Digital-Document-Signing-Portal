@@ -121,7 +121,8 @@ class DeploymentEngine:
     def deploy_script(
         self,
         relative_path: str,
-        script_path: Path
+        script_path: Path,
+        use_database: bool = True
     ):
         self.logger.info(
             f"Executing {relative_path}"
@@ -142,6 +143,7 @@ class DeploymentEngine:
                 self.db.execute_statement(
                     statement,
                     self.target_database
+                    if use_database else None
                 )
 
             self.db.commit()
@@ -162,5 +164,6 @@ class DeploymentEngine:
         for relative_path, script_path in scripts:
             self.deploy_script(
                 relative_path,
-                script_path
+                script_path,
+                use_database=(relative_path != "database/01_schema/00_create_database.sql")
             )

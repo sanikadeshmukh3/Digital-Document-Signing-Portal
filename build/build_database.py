@@ -237,18 +237,6 @@ def main():
                 args.target_database
             )
 
-        # ----------------------------------------------------
-        # Create database
-        # ----------------------------------------------------
-
-        db.create_database(
-            args.target_database
-        )
-
-        logger.info(
-            f"Created database "
-            f"{args.target_database}"
-        )
 
         # ----------------------------------------------------
         # Deploy SQL

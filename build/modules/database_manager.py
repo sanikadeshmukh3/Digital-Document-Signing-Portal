@@ -103,7 +103,7 @@ class DatabaseManager:
     def execute_statement(
         self,
         statement: str,
-        database_name: str
+        database_name=None
     ):
         if (
             self.connection is None
