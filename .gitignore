@@ -5,6 +5,9 @@ build/.env
 .build-work/
 *.log
 
+# Local working/scratch files (not part of the project deliverable)
+.agents/
+
 # Python
 __pycache__/
 *.pyc
