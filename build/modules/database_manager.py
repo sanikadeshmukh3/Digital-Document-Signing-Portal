@@ -152,6 +152,19 @@ class DatabaseManager:
         try:
             cursor.execute(statement)
 
+            if cursor.with_rows:
+                rows = cursor.fetchall()
+
+                for row in rows:
+                    print(row)
+
+            while cursor.nextset():
+                if cursor.with_rows:
+                    cursor.fetchall()
+
+                    for row in rows:
+                        print(row)
+
         finally:
             cursor.close()
 
