@@ -34,37 +34,37 @@
 -- Basic operational reads
 -- ------------------------------------------------------------
 
-GRANT SELECT ON document_portal.ReferenceData
+GRANT SELECT ON `{{TARGET_DB}}`.ReferenceData
 TO 'document_portal_app';
 
-GRANT SELECT ON document_portal.`User`
+GRANT SELECT ON `{{TARGET_DB}}`.`User`
 TO 'document_portal_app';
 
-GRANT SELECT ON document_portal.Role
+GRANT SELECT ON `{{TARGET_DB}}`.Role
 TO 'document_portal_app';
 
-GRANT SELECT ON document_portal.UserRole
+GRANT SELECT ON `{{TARGET_DB}}`.UserRole
 TO 'document_portal_app';
 
-GRANT SELECT ON document_portal.Document
+GRANT SELECT ON `{{TARGET_DB}}`.Document
 TO 'document_portal_app';
 
-GRANT SELECT ON document_portal.DocumentVersion
+GRANT SELECT ON `{{TARGET_DB}}`.DocumentVersion
 TO 'document_portal_app';
 
-GRANT SELECT ON document_portal.Workflow
+GRANT SELECT ON `{{TARGET_DB}}`.Workflow
 TO 'document_portal_app';
 
-GRANT SELECT ON document_portal.WorkflowStep
+GRANT SELECT ON `{{TARGET_DB}}`.WorkflowStep
 TO 'document_portal_app';
 
-GRANT SELECT ON document_portal.WorkflowParticipant
+GRANT SELECT ON `{{TARGET_DB}}`.WorkflowParticipant
 TO 'document_portal_app';
 
-GRANT SELECT ON document_portal.ApprovalDecision
+GRANT SELECT ON `{{TARGET_DB}}`.ApprovalDecision
 TO 'document_portal_app';
 
-GRANT SELECT ON document_portal.Signature
+GRANT SELECT ON `{{TARGET_DB}}`.Signature
 TO 'document_portal_app';
 
 
@@ -72,16 +72,16 @@ TO 'document_portal_app';
 -- Approved operational views
 -- ------------------------------------------------------------
 
-GRANT SELECT ON document_portal.vw_ParticipantWorklist
+GRANT SELECT ON `{{TARGET_DB}}`.vw_ParticipantWorklist
 TO 'document_portal_app';
 
-GRANT SELECT ON document_portal.vw_OutstandingActions
+GRANT SELECT ON `{{TARGET_DB}}`.vw_OutstandingActions
 TO 'document_portal_app';
 
-GRANT SELECT ON document_portal.vw_WorkflowDetail
+GRANT SELECT ON `{{TARGET_DB}}`.vw_WorkflowDetail
 TO 'document_portal_app';
 
-GRANT SELECT ON document_portal.vw_DocumentVersionHistory
+GRANT SELECT ON `{{TARGET_DB}}`.vw_DocumentVersionHistory
 TO 'document_portal_app';
 
 
@@ -90,27 +90,27 @@ TO 'document_portal_app';
 -- ------------------------------------------------------------
 
 GRANT EXECUTE ON PROCEDURE
-    document_portal.sp_initiate_workflow
+    `{{TARGET_DB}}`.sp_initiate_workflow
 TO 'document_portal_app';
 
 
 GRANT EXECUTE ON PROCEDURE
-    document_portal.sp_complete_review_acknowledgement
+    `{{TARGET_DB}}`.sp_complete_review_acknowledgement
 TO 'document_portal_app';
 
 
 GRANT EXECUTE ON PROCEDURE
-    document_portal.sp_record_approval_decision
+    `{{TARGET_DB}}`.sp_record_approval_decision
 TO 'document_portal_app';
 
 
 GRANT EXECUTE ON PROCEDURE
-    document_portal.sp_record_signature
+    `{{TARGET_DB}}`.sp_record_signature
 TO 'document_portal_app';
 
 
 GRANT EXECUTE ON PROCEDURE
-    document_portal.sp_cancel_workflow
+    `{{TARGET_DB}}`.sp_cancel_workflow
 TO 'document_portal_app';
 
 
@@ -129,16 +129,16 @@ TO 'document_portal_app';
 -- The role is intentionally read-only.
 -- ============================================================
 
-GRANT SELECT ON document_portal.vw_OutstandingActions
+GRANT SELECT ON `{{TARGET_DB}}`.vw_OutstandingActions
 TO 'document_portal_reporter';
 
-GRANT SELECT ON document_portal.vw_WorkflowDetail
+GRANT SELECT ON `{{TARGET_DB}}`.vw_WorkflowDetail
 TO 'document_portal_reporter';
 
-GRANT SELECT ON document_portal.vw_DocumentVersionHistory
+GRANT SELECT ON `{{TARGET_DB}}`.vw_DocumentVersionHistory
 TO 'document_portal_reporter';
 
-GRANT SELECT ON document_portal.vw_DocumentHistory
+GRANT SELECT ON `{{TARGET_DB}}`.vw_DocumentHistory
 TO 'document_portal_reporter';
 
 
@@ -150,16 +150,16 @@ TO 'document_portal_reporter';
 -- No INSERT / UPDATE / DELETE permissions are granted.
 -- ============================================================
 
-GRANT SELECT ON document_portal.vw_DocumentHistory
+GRANT SELECT ON `{{TARGET_DB}}`.vw_DocumentHistory
 TO 'document_portal_auditor';
 
-GRANT SELECT ON document_portal.vw_DocumentVersionHistory
+GRANT SELECT ON `{{TARGET_DB}}`.vw_DocumentVersionHistory
 TO 'document_portal_auditor';
 
-GRANT SELECT ON document_portal.vw_WorkflowDetail
+GRANT SELECT ON `{{TARGET_DB}}`.vw_WorkflowDetail
 TO 'document_portal_auditor';
 
-GRANT SELECT ON document_portal.vw_AuditHistory
+GRANT SELECT ON `{{TARGET_DB}}`.vw_AuditHistory
 TO 'document_portal_auditor';
 
 
@@ -185,80 +185,80 @@ TO 'document_portal_auditor';
 -- User administration
 
 GRANT SELECT, INSERT, UPDATE
-ON document_portal.`User`
+ON `{{TARGET_DB}}`.`User`
 TO 'document_portal_admin';
 
 
 -- Business-role administration
 
 GRANT SELECT, INSERT, UPDATE
-ON document_portal.Role
+ON `{{TARGET_DB}}`.Role
 TO 'document_portal_admin';
 
 
 GRANT SELECT, INSERT, DELETE
-ON document_portal.UserRole
+ON `{{TARGET_DB}}`.UserRole
 TO 'document_portal_admin';
 
 
 -- Reference-data administration
 
 GRANT SELECT, INSERT, UPDATE
-ON document_portal.ReferenceData
+ON `{{TARGET_DB}}`.ReferenceData
 TO 'document_portal_admin';
 
 
 -- Operational visibility
 
 GRANT SELECT
-ON document_portal.Document
+ON `{{TARGET_DB}}`.Document
 TO 'document_portal_admin';
 
 GRANT SELECT
-ON document_portal.DocumentVersion
+ON `{{TARGET_DB}}`.DocumentVersion
 TO 'document_portal_admin';
 
 GRANT SELECT
-ON document_portal.Workflow
+ON `{{TARGET_DB}}`.Workflow
 TO 'document_portal_admin';
 
 GRANT SELECT
-ON document_portal.WorkflowStep
+ON `{{TARGET_DB}}`.WorkflowStep
 TO 'document_portal_admin';
 
 GRANT SELECT
-ON document_portal.WorkflowParticipant
+ON `{{TARGET_DB}}`.WorkflowParticipant
 TO 'document_portal_admin';
 
 
 -- Historical information is read-only.
 
 GRANT SELECT
-ON document_portal.ApprovalDecision
+ON `{{TARGET_DB}}`.ApprovalDecision
 TO 'document_portal_admin';
 
 GRANT SELECT
-ON document_portal.Signature
+ON `{{TARGET_DB}}`.Signature
 TO 'document_portal_admin';
 
 GRANT SELECT
-ON document_portal.AuditLog
+ON `{{TARGET_DB}}`.AuditLog
 TO 'document_portal_admin';
 
 
 -- Administrative/reporting views.
 
 GRANT SELECT
-ON document_portal.vw_DocumentHistory
+ON `{{TARGET_DB}}`.vw_DocumentHistory
 TO 'document_portal_admin';
 
 GRANT SELECT
-ON document_portal.vw_AuditHistory
+ON `{{TARGET_DB}}`.vw_AuditHistory
 TO 'document_portal_admin';
 
 
 -- Allow administrator-authorized workflow cancellation.
 
 GRANT EXECUTE ON PROCEDURE
-    document_portal.sp_cancel_workflow
+    `{{TARGET_DB}}`.sp_cancel_workflow
 TO 'document_portal_admin';
