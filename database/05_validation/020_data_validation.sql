@@ -67,17 +67,17 @@ BEGIN
           (DomainName='ACCOUNT_STATUS' AND Code IN ('ACTIVE','INACTIVE'))
        OR (DomainName='DOCUMENT_STATUS' AND Code IN ('DRAFT','ACTIVE','ARCHIVED'))
        OR (DomainName='DOCUMENT_CLASSIFICATION' AND Code IN ('INTERNAL','CONFIDENTIAL','RESTRICTED'))
-       OR (DomainName='DOCUMENT_VERSION_STATUS' AND Code IN ('CURRENT','LOCKED'))
+       OR (DomainName='DOCUMENT_VERSION_STATUS' AND Code IN ('DRAFT','CURRENT','LOCKED'))
        OR (DomainName='WORKFLOW_STATUS' AND Code IN ('DRAFT','ACTIVE','COMPLETED','REJECTED','CANCELLED','EXPIRED'))
        OR (DomainName='WORKFLOW_PURPOSE_TYPE' AND Code IN ('REVIEW','APPROVAL','SIGNATURE','FULL_REVIEW_APPROVAL_SIGNATURE'))
        OR (DomainName='STEP_TYPE' AND Code IN ('REVIEW','APPROVAL','ACKNOWLEDGEMENT','SIGNATURE'))
        OR (DomainName='STEP_STATUS' AND Code IN ('PENDING','ACTIVE','COMPLETED','CANCELLED'))
-       OR (DomainName='PARTICIPANT_STATUS' AND Code IN ('PENDING','ACTIVE','COMPLETED','REJECTED','CANCELLED'))
+       OR (DomainName='PARTICIPANT_STATUS' AND Code IN ('PENDING','ACTIVE','COMPLETED','REJECTED','CANCELLED', 'DECLINED'))
        OR (DomainName='ASSIGNED_ACTION' AND Code IN ('REVIEW','APPROVAL','ACKNOWLEDGEMENT','SIGNATURE'))
        OR (DomainName='APPROVAL_DECISION' AND Code IN ('APPROVED','REJECTED'))
        OR (DomainName='SIGNATURE_STATUS' AND Code IN ('SIGNED'))
       );
-    IF v_count <> 40 THEN
+    IF v_count <> 42 THEN
         SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = 'Data validation failed: one or more required reference codes are missing or inactive.';
     END IF;
@@ -177,11 +177,243 @@ BEGIN
             SET MESSAGE_TEXT = 'Data validation failed: a participant action does not match its WorkflowStep type.';
     END IF;
 
+    -- 5f. Workflow.DocumentID must match the parent Document of Workflow.DocumentVersionID.
+    SELECT COUNT(*) INTO v_count
+    FROM Workflow w
+    JOIN DocumentVersion dv
+        ON dv.DocumentVersionID = w.DocumentVersionID
+    WHERE w.DocumentID <> dv.DocumentID;
+
+    IF v_count <> 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Data validation failed: Workflow.DocumentID does not match the parent Document of its DocumentVersion.';
+    END IF;
+
+
     -- ========================================================
-    -- 6. Version uniqueness / positivity.
+    -- 6. ReferenceData domain correctness
+    -- ========================================================
+    -- Each foreign key into ReferenceData must point to the
+    -- expected reference-data domain, not merely to an existing
+    -- ReferenceData row.
     -- ========================================================
 
-    -- 6a. Duplicate (DocumentID, VersionNumber).
+
+    -- --------------------------------------------------------
+    -- 6a. User.AccountStatusID -> ACCOUNT_STATUS
+    -- --------------------------------------------------------
+
+    SELECT COUNT(*) INTO v_count
+    FROM `User` u
+    JOIN ReferenceData rd
+        ON rd.ReferenceDataID = u.AccountStatusID
+    WHERE rd.DomainName <> 'ACCOUNT_STATUS';
+
+    IF v_count <> 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Data validation failed: User.AccountStatusID references the wrong ReferenceData domain.';
+    END IF;
+
+
+    -- --------------------------------------------------------
+    -- 6b. Document.ClassificationID -> DOCUMENT_CLASSIFICATION
+    -- --------------------------------------------------------
+
+    SELECT COUNT(*) INTO v_count
+    FROM Document d
+    JOIN ReferenceData rd
+        ON rd.ReferenceDataID = d.ClassificationID
+    WHERE rd.DomainName <> 'DOCUMENT_CLASSIFICATION';
+
+    IF v_count <> 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Data validation failed: Document.ClassificationID references the wrong ReferenceData domain.';
+    END IF;
+
+
+    -- --------------------------------------------------------
+    -- 6c. Document.LifecycleStatusID -> DOCUMENT_STATUS
+    -- --------------------------------------------------------
+
+    SELECT COUNT(*) INTO v_count
+    FROM Document d
+    JOIN ReferenceData rd
+        ON rd.ReferenceDataID = d.LifecycleStatusID
+    WHERE rd.DomainName <> 'DOCUMENT_STATUS';
+
+    IF v_count <> 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Data validation failed: Document.LifecycleStatusID references the wrong ReferenceData domain.';
+    END IF;
+
+
+    -- --------------------------------------------------------
+    -- 6d. DocumentVersion.CurrentVersionStatusID
+    --     -> DOCUMENT_VERSION_STATUS
+    -- --------------------------------------------------------
+
+    SELECT COUNT(*) INTO v_count
+    FROM DocumentVersion dv
+    JOIN ReferenceData rd
+        ON rd.ReferenceDataID = dv.CurrentVersionStatusID
+    WHERE rd.DomainName <> 'DOCUMENT_VERSION_STATUS';
+
+    IF v_count <> 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Data validation failed: DocumentVersion.CurrentVersionStatusID references the wrong ReferenceData domain.';
+    END IF;
+
+
+    -- --------------------------------------------------------
+    -- 6e. Workflow.WorkflowPurposeTypeID
+    --     -> WORKFLOW_PURPOSE_TYPE
+    -- --------------------------------------------------------
+
+    SELECT COUNT(*) INTO v_count
+    FROM Workflow w
+    JOIN ReferenceData rd
+        ON rd.ReferenceDataID = w.WorkflowPurposeTypeID
+    WHERE rd.DomainName <> 'WORKFLOW_PURPOSE_TYPE';
+
+    IF v_count <> 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Data validation failed: Workflow.WorkflowPurposeTypeID references the wrong ReferenceData domain.';
+    END IF;
+
+
+    -- --------------------------------------------------------
+    -- 6f. Workflow.WorkflowStatusID -> WORKFLOW_STATUS
+    -- --------------------------------------------------------
+
+    SELECT COUNT(*) INTO v_count
+    FROM Workflow w
+    JOIN ReferenceData rd
+        ON rd.ReferenceDataID = w.WorkflowStatusID
+    WHERE rd.DomainName <> 'WORKFLOW_STATUS';
+
+    IF v_count <> 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Data validation failed: Workflow.WorkflowStatusID references the wrong ReferenceData domain.';
+    END IF;
+
+
+    -- --------------------------------------------------------
+    -- 6g. WorkflowStep.StepTypeID -> STEP_TYPE
+    -- --------------------------------------------------------
+
+    SELECT COUNT(*) INTO v_count
+    FROM WorkflowStep ws
+    JOIN ReferenceData rd
+        ON rd.ReferenceDataID = ws.StepTypeID
+    WHERE rd.DomainName <> 'STEP_TYPE';
+
+    IF v_count <> 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Data validation failed: WorkflowStep.StepTypeID references the wrong ReferenceData domain.';
+    END IF;
+
+
+    -- --------------------------------------------------------
+    -- 6h. WorkflowStep.StepStatusID -> STEP_STATUS
+    -- --------------------------------------------------------
+
+    SELECT COUNT(*) INTO v_count
+    FROM WorkflowStep ws
+    JOIN ReferenceData rd
+        ON rd.ReferenceDataID = ws.StepStatusID
+    WHERE rd.DomainName <> 'STEP_STATUS';
+
+    IF v_count <> 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Data validation failed: WorkflowStep.StepStatusID references the wrong ReferenceData domain.';
+    END IF;
+
+
+    -- --------------------------------------------------------
+    -- 6i. WorkflowParticipant.AssignedActionID
+    --     -> ASSIGNED_ACTION
+    -- --------------------------------------------------------
+
+    SELECT COUNT(*) INTO v_count
+    FROM WorkflowParticipant wp
+    JOIN ReferenceData rd
+        ON rd.ReferenceDataID = wp.AssignedActionID
+    WHERE rd.DomainName <> 'ASSIGNED_ACTION';
+
+    IF v_count <> 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Data validation failed: WorkflowParticipant.AssignedActionID references the wrong ReferenceData domain.';
+    END IF;
+
+
+    -- --------------------------------------------------------
+    -- 6j. WorkflowParticipant.AssignmentStatusID
+    --     -> PARTICIPANT_STATUS
+    -- --------------------------------------------------------
+
+    SELECT COUNT(*) INTO v_count
+    FROM WorkflowParticipant wp
+    JOIN ReferenceData rd
+        ON rd.ReferenceDataID = wp.AssignmentStatusID
+    WHERE rd.DomainName <> 'PARTICIPANT_STATUS';
+
+    IF v_count <> 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Data validation failed: WorkflowParticipant.AssignmentStatusID references the wrong ReferenceData domain.';
+    END IF;
+
+
+    -- --------------------------------------------------------
+    -- 6k. ApprovalDecision.DecisionValueID
+    --     -> APPROVAL_DECISION
+    -- --------------------------------------------------------
+
+    SELECT COUNT(*) INTO v_count
+    FROM ApprovalDecision ad
+    JOIN ReferenceData rd
+        ON rd.ReferenceDataID = ad.DecisionValueID
+    WHERE rd.DomainName <> 'APPROVAL_DECISION';
+
+    IF v_count <> 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Data validation failed: ApprovalDecision.DecisionValueID references the wrong ReferenceData domain.';
+    END IF;
+
+
+    -- --------------------------------------------------------
+    -- 6l. Signature.SignatureStatusID
+    --     -> SIGNATURE_STATUS
+    -- --------------------------------------------------------
+
+    SELECT COUNT(*) INTO v_count
+    FROM Signature s
+    JOIN ReferenceData rd
+        ON rd.ReferenceDataID = s.SignatureStatusID
+    WHERE rd.DomainName <> 'SIGNATURE_STATUS';
+
+    IF v_count <> 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Data validation failed: Signature.SignatureStatusID references the wrong ReferenceData domain.';
+    END IF;
+
+    -- ========================================================
+    -- 7. Version uniqueness / positivity.
+    -- ========================================================
+
+    -- 7a. Duplicate (DocumentID, VersionNumber).
     SELECT COUNT(*) INTO v_count FROM (
         SELECT DocumentID, VersionNumber
         FROM DocumentVersion
@@ -193,14 +425,14 @@ BEGIN
             SET MESSAGE_TEXT = 'Data validation failed: duplicate (DocumentID, VersionNumber) exists.';
     END IF;
 
-    -- 6b. Non-positive version numbers.
+    -- 7b. Non-positive version numbers.
     SELECT COUNT(*) INTO v_count FROM DocumentVersion WHERE VersionNumber <= 0;
     IF v_count <> 0 THEN
         SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = 'Data validation failed: a DocumentVersion has a non-positive VersionNumber.';
     END IF;
 
-    -- 6c. Duplicate (WorkflowStepID, UserID, AssignedActionID).
+    -- 7c. Duplicate (WorkflowStepID, UserID, AssignedActionID).
     SELECT COUNT(*) INTO v_count FROM (
         SELECT WorkflowStepID, UserID, AssignedActionID
         FROM WorkflowParticipant
@@ -213,10 +445,10 @@ BEGIN
     END IF;
 
     -- ========================================================
-    -- 7. Workflow-status invariants.
+    -- 8. Workflow-status invariants.
     -- ========================================================
 
-    -- 7a. A COMPLETED workflow has no participant in (PENDING, ACTIVE).
+    -- 8a. A COMPLETED workflow has no participant in (PENDING, ACTIVE).
     SELECT COUNT(*) INTO v_count
     FROM Workflow w
     JOIN ReferenceData wf_status ON wf_status.ReferenceDataID = w.WorkflowStatusID
@@ -230,7 +462,7 @@ BEGIN
             SET MESSAGE_TEXT = 'Data validation failed: a COMPLETED workflow still has PENDING/ACTIVE participants.';
     END IF;
 
-    -- 7b. A COMPLETED step has all RequiredFlag participants COMPLETED.
+    -- 8b. A COMPLETED step has all RequiredFlag participants COMPLETED.
     SELECT COUNT(*) INTO v_count
     FROM WorkflowStep ws
     JOIN ReferenceData s_status ON s_status.ReferenceDataID = ws.StepStatusID
@@ -244,7 +476,7 @@ BEGIN
             SET MESSAGE_TEXT = 'Data validation failed: a COMPLETED step has a required participant that is not COMPLETED.';
     END IF;
 
-    -- 7c. A REJECTED ApprovalDecision has a non-null, non-blank RejectionReason.
+    -- 8c. A REJECTED ApprovalDecision has a non-null, non-blank RejectionReason.
     SELECT COUNT(*) INTO v_count
     FROM ApprovalDecision ad
     JOIN ReferenceData dv ON dv.ReferenceDataID = ad.DecisionValueID
@@ -255,7 +487,7 @@ BEGIN
             SET MESSAGE_TEXT = 'Data validation failed: a REJECTED ApprovalDecision lacks a RejectionReason.';
     END IF;
 
-    -- 7d. A CANCELLED workflow has a non-null CancellationReason.
+    -- 8d. A CANCELLED workflow has a non-null CancellationReason.
     SELECT COUNT(*) INTO v_count
     FROM Workflow w
     JOIN ReferenceData wf_status ON wf_status.ReferenceDataID = w.WorkflowStatusID
@@ -266,7 +498,7 @@ BEGIN
             SET MESSAGE_TEXT = 'Data validation failed: a CANCELLED workflow lacks a CancellationReason.';
     END IF;
 
-    -- 7e. Every Signature's DocumentVersionID equals its workflow's DocumentVersionID.
+    -- 8e. Every Signature's DocumentVersionID equals its workflow's DocumentVersionID.
     SELECT COUNT(*) INTO v_count
     FROM Signature s
     JOIN WorkflowParticipant wp ON wp.WorkflowParticipantID = s.WorkflowParticipantID
@@ -278,7 +510,7 @@ BEGIN
             SET MESSAGE_TEXT = 'Data validation failed: a Signature references a DocumentVersion different from its workflow version.';
     END IF;
 
-    -- 7f. At most one ApprovalDecision / Signature per participant.
+    -- 8f. At most one ApprovalDecision / Signature per participant.
     SELECT COUNT(*) INTO v_count FROM (
         SELECT WorkflowParticipantID FROM ApprovalDecision
         GROUP BY WorkflowParticipantID HAVING COUNT(*) > 1

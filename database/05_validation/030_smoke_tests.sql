@@ -5,7 +5,9 @@
 -- Purpose:
 --   Demonstrate that the built database is usable: representative
 --   read queries over the operational views plus a few
---   SIGNAL-guarded assertions. All statements are read-only.
+--   SIGNAL-guarded assertions. All business-data checks are read-only.
+--   Temporary validation procedures may be created and dropped
+--   to raise fail-closed assertions.
 --
 -- Database: MySQL 8.x
 -- ============================================================

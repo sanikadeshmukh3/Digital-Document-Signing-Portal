@@ -186,7 +186,7 @@ VALUES
      'Superseded travel policy retained for history.',
      (SELECT UserID FROM `User` WHERE Email='olivia.brooks@initech.example'),
      (SELECT ReferenceDataID FROM ReferenceData WHERE DomainName='DOCUMENT_CLASSIFICATION' AND Code='INTERNAL'),
-     (SELECT ReferenceDataID FROM ReferenceData WHERE DomainName='DOCUMENT_STATUS' AND Code='ARCHIVED'));
+     (SELECT ReferenceDataID FROM ReferenceData WHERE DomainName='DOCUMENT_STATUS' AND Code='ACTIVE'));
 
 
 -- ============================================================
@@ -379,6 +379,8 @@ VALUES
      (SELECT ReferenceDataID FROM ReferenceData WHERE DomainName='APPROVAL_DECISION' AND Code='APPROVED'),
      '2026-01-12 11:00:00', 'Terms acceptable; approved.', NULL);
 
+SET @approval_c2 = LAST_INSERT_ID();
+
 -- Signature C3: SIGNED against the workflow's version (Doc 2 v1)
 INSERT INTO Signature
     (WorkflowParticipantID, DocumentVersionID, SigningDateTime,
@@ -391,6 +393,8 @@ VALUES
      '2026-01-13 16:00:00',
      (SELECT ReferenceDataID FROM ReferenceData WHERE DomainName='SIGNATURE_STATUS' AND Code='SIGNED'),
      'TYPED_NAME', 'SIG-MSA-V1-0001');
+
+SET @signature_c3 = LAST_INSERT_ID();
 
 
 -- ============================================================
@@ -726,12 +730,12 @@ VALUES
 
     -- Approval recorded (Scenario C)
     ((SELECT UserID FROM `User` WHERE Email='daniel.cho@initech.example'),
-     'APPROVAL_RECORDED', 'ApprovalDecision', @part_c2,
+     'APPROVAL_RECORDED', 'ApprovalDecision', @approval_c2,
      'TXN-C-0002', NULL, 'APPROVED', 'Approver approved MSA v1.'),
 
     -- Signature recorded (Scenario C)
     ((SELECT UserID FROM `User` WHERE Email='sofia.alvarez@initech.example'),
-     'SIGNATURE_RECORDED', 'Signature', @part_c3,
+     'SIGNATURE_RECORDED', 'Signature', @signature_c3,
      'TXN-C-0003', NULL, 'DocumentVersion signed (MSA v1)',
      'Signer executed signature.'),
 

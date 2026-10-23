@@ -65,6 +65,8 @@ VALUES
     -- DOCUMENT_VERSION_STATUS  (DocumentVersion.CurrentVersionStatusID)
     -- Required by sp_initiate_workflow and DocumentVersion triggers.
     -- --------------------------------------------------------
+    ('DOCUMENT_VERSION_STATUS', 'DRAFT',
+     'Draft', 'Document version has been created but is not yet the current version.'),
     ('DOCUMENT_VERSION_STATUS', 'CURRENT',
      'Current', 'Active, editable current version of a document.'),
     ('DOCUMENT_VERSION_STATUS', 'LOCKED',
@@ -138,6 +140,8 @@ VALUES
      'Rejected', 'Assignment ended in a rejection decision.'),
     ('PARTICIPANT_STATUS', 'CANCELLED',
      'Cancelled', 'Assignment was cancelled.'),
+    ('PARTICIPANT_STATUS', 'DECLINED',
+     'Declined', 'Assignment was explicitly declined by the assigned participant.'),
 
     -- --------------------------------------------------------
     -- ASSIGNED_ACTION  (WorkflowParticipant.AssignedActionID)

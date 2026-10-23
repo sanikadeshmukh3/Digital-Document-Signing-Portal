@@ -102,12 +102,51 @@ ORDER BY tr.expected;
 
 SELECT '--- Database roles (document_portal_*) ---' AS ObjectValidation;
 
--- Roles are server-level accounts (user=rolename, host='%').
--- Readable only with privilege on mysql.user; shown best-effort.
-SELECT CONCAT(User) AS ObjectName, 'PRESENT' AS Status
-FROM mysql.user
-WHERE User LIKE 'document_portal_%'
-ORDER BY User;
+SELECT '--- Database roles (document_portal_*) ---' AS ObjectValidation;
+
+-- Database roles are server-level objects.
+-- Reading mysql.user may not be permitted for a least-privilege
+-- build account, so this display check is best-effort.
+--
+-- If mysql.user is readable, the installed project roles are shown.
+-- If it is not readable, a NOTE is returned instead of failing
+-- the build at this display-only stage.
+
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS sp__display_database_roles $$
+
+CREATE PROCEDURE sp__display_database_roles()
+BEGIN
+    DECLARE v_role_err INT DEFAULT 0;
+
+    DECLARE CONTINUE HANDLER FOR SQLEXCEPTION
+        SET v_role_err = 1;
+
+    SELECT
+        User AS ObjectName,
+        'PRESENT' AS Status
+    FROM mysql.user
+    WHERE User IN (
+        'document_portal_app',
+        'document_portal_reporter',
+        'document_portal_auditor',
+        'document_portal_admin'
+    )
+    ORDER BY User;
+
+    IF v_role_err = 1 THEN
+        SELECT
+            'NOTE: mysql.user is not readable by the build user; database-role display check skipped.'
+                AS RoleCheck;
+    END IF;
+END $$
+
+DELIMITER ;
+
+CALL sp__display_database_roles();
+
+DROP PROCEDURE sp__display_database_roles;
 
 
 -- ------------------------------------------------------------
