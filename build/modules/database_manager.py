@@ -1,5 +1,4 @@
 import mysql.connector
-from mysql.connector import Error
 
 
 class DatabaseManager:
@@ -18,8 +17,19 @@ class DatabaseManager:
         }
 
         self.connection = None
+        self.current_database = None
+
 
     def connect(self, database=None):
+        """
+        Open a fresh MySQL connection.
+
+        If an existing connection is open for a different database,
+        close it first.
+        """
+
+        self.close()
+
         config = self.config.copy()
 
         if database:
@@ -29,86 +39,112 @@ class DatabaseManager:
             **config
         )
 
+        self.current_database = database
+
         return self.connection
 
+
     def close(self):
-        if (
-            self.connection
-            and self.connection.is_connected()
-        ):
-            self.connection.close()
+        """
+        Close and completely discard the current connection.
+        """
+
+        if self.connection is not None:
+            try:
+                if self.connection.is_connected():
+                    self.connection.close()
+            finally:
+                self.connection = None
+                self.current_database = None
+
 
     def test_connection(self):
+        """
+        Test server-level connectivity without selecting a database.
+        """
+
         self.connect()
 
         cursor = self.connection.cursor()
-        cursor.execute("SELECT VERSION();")
 
-        version = cursor.fetchone()[0]
-
-        cursor.close()
-        self.close()
+        try:
+            cursor.execute("SELECT VERSION();")
+            version = cursor.fetchone()[0]
+        finally:
+            cursor.close()
+            self.close()
 
         return version
 
+
     def database_exists(self, database_name: str):
+        """
+        Check whether a database already exists.
+        """
+
         self.connect()
 
         cursor = self.connection.cursor()
 
-        cursor.execute(
-            """
-            SELECT COUNT(*)
-            FROM information_schema.schemata
-            WHERE schema_name = %s
-            """,
-            (database_name,)
-        )
+        try:
+            cursor.execute(
+                """
+                SELECT COUNT(*)
+                FROM information_schema.schemata
+                WHERE schema_name = %s
+                """,
+                (database_name,)
+            )
 
-        exists = cursor.fetchone()[0] > 0
+            exists = cursor.fetchone()[0] > 0
 
-        cursor.close()
-        self.close()
+        finally:
+            cursor.close()
+            self.close()
 
         return exists
 
-    def create_database(self, database_name: str):
-        self.connect()
-
-        cursor = self.connection.cursor()
-
-        cursor.execute(
-            f"""
-            CREATE DATABASE `{database_name}`
-            CHARACTER SET utf8mb4
-            COLLATE utf8mb4_0900_ai_ci
-            """
-        )
-
-        cursor.close()
-        self.close()
 
     def drop_database(self, database_name: str):
+        """
+        Drop the target database using a server-level connection.
+        """
+
         self.connect()
 
         cursor = self.connection.cursor()
 
-        cursor.execute(
-            f"DROP DATABASE `{database_name}`"
-        )
+        try:
+            cursor.execute(
+                f"DROP DATABASE `{database_name}`"
+            )
 
-        cursor.close()
-        self.close()
+            self.connection.commit()
+
+        finally:
+            cursor.close()
+            self.close()
+
 
     def execute_statement(
         self,
         statement: str,
         database_name=None
     ):
-        if (
+        """
+        Execute one SQL statement.
+
+        Reconnect automatically when the requested database differs
+        from the database associated with the current connection.
+        """
+
+        connection_invalid = (
             self.connection is None
             or not self.connection.is_connected()
-        ):
+            or self.current_database != database_name
+        )
+
+        if connection_invalid:
             self.connect(database_name)
 
         cursor = self.connection.cursor()
@@ -119,10 +155,18 @@ class DatabaseManager:
         finally:
             cursor.close()
 
+
     def commit(self):
-        if self.connection:
+        if (
+            self.connection is not None
+            and self.connection.is_connected()
+        ):
             self.connection.commit()
 
+
     def rollback(self):
-        if self.connection:
+        if (
+            self.connection is not None
+            and self.connection.is_connected()
+        ):
             self.connection.rollback()
