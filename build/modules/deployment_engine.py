@@ -138,12 +138,16 @@ class DeploymentEngine:
             sql
         )
 
+        if use_database:
+            database_name = self.target_database
+        else:
+            database_name = None
+
         try:
             for statement in statements:
                 self.db.execute_statement(
                     statement,
-                    self.target_database
-                    if use_database else None
+                    database_name
                 )
 
             self.db.commit()
@@ -152,18 +156,27 @@ class DeploymentEngine:
             self.db.rollback()
             raise
 
+        finally:
+            self.db.close()
+
         self.logger.info(
             f"Succeeded: {relative_path}"
         )
 
-    def deploy_all(self, repo_dir: Path):
-        scripts = self.load_manifest(
-            repo_dir
-        )
+
+
+    def deploy_all(self, repo_dir):
+        scripts = self.load_manifest(repo_dir)
 
         for relative_path, script_path in scripts:
+
+            use_database = (
+                relative_path
+                != "database/00_create_database.sql"
+            )
+
             self.deploy_script(
                 relative_path,
                 script_path,
-                use_database=(relative_path != "database/01_schema/00_create_database.sql")
+                use_database=use_database
             )
