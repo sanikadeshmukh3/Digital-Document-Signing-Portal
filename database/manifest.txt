@@ -1,0 +1,48 @@
+# ============================================================
+# File: database/manifest.txt
+# Project: Document Workflow and E-signing Portal
+#
+# Authoritative build order for the MySQL 8.x database build.
+# One repo-relative path per line; blank lines and lines
+# starting with '#' are ignored.
+#
+# Load order rationale:
+#   - Reference/core/relationship tables, then constraints+indexes.
+#   - Views load before functions (the views do not call the
+#     functions); functions load before procedures (procedures
+#     call the functions); triggers last in programmability.
+#   - Security roles/grants, then seed data, then validation.
+#   - Validation runs last so object + data checks and smoke tests
+#     execute against the fully built, seeded database.
+#
+# NOTE: the on-disk programmability folder is spelled
+#       "02_programability" (single 'm'); paths below match disk.
+# ============================================================
+
+# --- 0. Database creation ---
+database/00_create_database.sql
+
+# --- 1. Schema ---
+database/01_schema/010_reference_tables.sql
+database/01_schema/020_core_tables.sql
+database/01_schema/030_relationship_tables.sql
+database/01_schema/040_constraints_indexes.sql
+
+# --- 2. Programmability ---
+database/02_programability/010_views.sql
+database/02_programability/020_functions.sql
+database/02_programability/030_procedures.sql
+database/02_programability/040_triggers.sql
+
+# --- 3. Security ---
+database/03_security/010_roles.sql
+database/03_security/020_grants.sql
+
+# --- 4. Seed data ---
+database/04_seed/010_reference_data.sql
+database/04_seed/020_sample_data.sql
+
+# --- 5. Validation ---
+database/05_validation/010_object_validation.sql
+database/05_validation/020_data_validation.sql
+database/05_validation/030_smoke_tests.sql
