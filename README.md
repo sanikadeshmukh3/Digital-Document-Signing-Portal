@@ -1,39 +1,90 @@
 # Digital Document Workflow and E-Signing Portal
 
-Database Implementation Project  
-Course: 01:198:437:01
+A MySQL database implementation for managing document versions, approval workflows, participant assignments, electronic-signature records, lifecycle state transitions, authorization rules, audit history, and reporting.
 
-## Overview
+This project is a **database implementation project**. A production web/mobile application, external e-signature provider, email delivery, cloud storage, and external authentication are outside the current scope.
 
-The **Digital Document Workflow and E-Signing Portal** is a MySQL database implementation for managing controlled document review, approval, acknowledgement, and electronic-signature workflows.
+## Repository
 
-The database provides a centralized source of truth for:
+Repository:
 
-- Documents and document metadata
-- Document version history
-- Workflow creation and progression
-- Sequential and parallel workflow steps
-- Participant assignments
-- Review and acknowledgement completion
-- Approval decisions
-- Electronic signatures
-- User roles and entitlements
-- Workflow cancellation and rejection
-- Outstanding-action reporting
-- Audit and history tracking
+`sanikadeshmukh3/Digital-Document-Signing-Portal`
 
-This project focuses on the **database layer**. A production web application, authentication system, external e-signature provider, email notification service, and document-editing interface are outside the project scope.
+The final release is intended to be built from an exact Git tag, such as:
+
+```text
+v1.0.0
+```
+
+The build process resolves the requested tag to an exact Git commit SHA and records both values in the build log.
 
 ---
 
-# Repository Structure
+# 1. Project Scope
+
+The database supports:
+
+- User and business-role management
+- Documents and document-version history
+- Controlled document-version creation
+- Sequential and parallel workflow steps
+- Review, acknowledgement, approval, and signature actions
+- Role- and assignment-based action authorization
+- Workflow cancellation and expiration
+- Workflow progression and completion validation
+- Document-version locking
+- Audit logging
+- Historical reporting
+- Outstanding-action reporting
+- Database-level integrity and immutability controls
+- Transaction rollback and exception handling
+- MySQL roles and grants
+- Build, seed, validation, and demonstration scripts
+
+---
+
+# 2. Main Database Entities
+
+The schema contains the following primary business entities:
+
+- `User`
+- `Role`
+- `UserRole`
+- `Document`
+- `DocumentVersion`
+- `Workflow`
+- `WorkflowStep`
+- `WorkflowParticipant`
+- `ApprovalDecision`
+- `Signature`
+- `ReferenceData`
+- `AuditLog`
+
+## Weak Entity
+
+`DocumentVersion` is modeled as the project's weak entity.
+
+Its identifying relationship is with `Document`.
+
+Its business identity is represented by:
+
+```text
+(DocumentID, VersionNumber)
+```
+
+where `VersionNumber` acts as the partial key within a parent document.
+
+A separate `DocumentVersionID` is retained as a unique technical identifier for references from other tables.
+
+---
+
+# 3. Repository Structure
 
 ```text
 Digital-Document-Signing-Portal/
 │
 ├── README.md
 ├── requirements.txt
-├── .gitignore
 │
 ├── build/
 │   ├── build_database.py
@@ -75,68 +126,35 @@ Digital-Document-Signing-Portal/
 │   │   └── 030_smoke_tests.sql
 │   │
 │   ├── 06_demo_tests/
-│   │   └── 010_exception_transaction_tests.sql
+│   │   ├── 010_exception_transaction_tests.sql
+│   │   └── 020_positive_lifecycle_tests.sql
 │   │
 │   └── manifest.txt
 │
 └── docs/
-    ├── Functional Requirements Document.pdf
-    ├── Technical Design Document.pdf
-    └── ERD.pdf
+    ├── Functional Requirements Document
+    ├── Technical Design Document
+    ├── ERD
+    └── demo_evidence/
+        ├── build_logs/
+        └── validation/
 ```
 
-The `manifest.txt` file defines the authoritative database build order.
-
-The scripts in `06_demo_tests/` are intentionally **not included in the normal manifest** because they exercise expected business-rule failures and transaction rollback behavior after a successful database build.
+> Note: the current repository uses the directory name `02_programability`. If this directory is renamed to `02_programmability`, the manifest, README, and any build references must be updated together.
 
 ---
 
-# Database Design
+# 4. Prerequisites
 
-The implementation includes the following primary entities:
-
-- `User`
-- `Role`
-- `UserRole`
-- `Document`
-- `DocumentVersion`
-- `Workflow`
-- `WorkflowStep`
-- `WorkflowParticipant`
-- `ApprovalDecision`
-- `Signature`
-- `ReferenceData`
-- `AuditLog`
-
-## Weak Entity
-
-`DocumentVersion` is modeled as a weak entity whose existence depends on `Document`.
-
-Its identifying key is:
-
-```text
-(DocumentID, VersionNumber)
-```
-
-`VersionNumber` is meaningful only within the parent document.
-
-A unique surrogate `DocumentVersionID` is also maintained for technical references from other database objects.
-
----
-
-# Prerequisites
-
-The build has been tested using a local MySQL environment on macOS.
-
-The following software is required:
+The build requires:
 
 - Git
 - Python 3
-- MySQL Server
+- MySQL server
 - MySQL command-line client
-- Bash-compatible shell
+- Bash-compatible shell for `build_database.sh`
 
-Verify the required tools before building:
+Verify the required tools:
 
 ```bash
 git --version
@@ -144,7 +162,9 @@ python3 --version
 mysql --version
 ```
 
-Verify that the MySQL server is running and accessible:
+Confirm that the MySQL server is running and reachable before starting the build.
+
+Example:
 
 ```bash
 mysql \
@@ -154,69 +174,42 @@ mysql \
   -p
 ```
 
-Then run:
-
-```sql
-SELECT VERSION();
-SHOW DATABASES;
-```
-
-Exit MySQL with:
-
-```sql
-EXIT;
-```
-
 ---
 
-# Python Environment Setup
+# 5. Python Environment Setup
 
-A Python virtual environment is recommended so that project-specific dependencies remain isolated from system Python packages.
-
-From the repository root:
+Create a local virtual environment:
 
 ```bash
 python3 -m venv .venv
 ```
 
-Activate the environment on macOS/Linux:
+Activate it:
 
 ```bash
 source .venv/bin/activate
 ```
 
-Install the required packages:
+Install dependencies:
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-The project currently requires:
+`requirements.txt` contains:
 
 ```text
 mysql-connector-python
 python-dotenv
 ```
 
-Optional dependency verification:
-
-```bash
-python -c "import dotenv; import mysql.connector; print('dependencies OK')"
-```
-
-Expected output:
-
-```text
-dependencies OK
-```
-
-The `.venv/` directory must not be committed to Git.
+The `.venv/` directory should not be committed to Git.
 
 ---
 
-# Configuration
+# 6. Build Configuration
 
-Copy the example configuration file:
+Copy the example configuration:
 
 ```bash
 cp build/config.example.env build/.env
@@ -228,38 +221,31 @@ Edit:
 build/.env
 ```
 
-with the local MySQL configuration.
-
 Example:
 
 ```text
 DB_HOST=127.0.0.1
 DB_PORT=3306
+
 DB_ADMIN_USER=root
-DB_ADMIN_PASSWORD=replace_with_local_password
+DB_ADMIN_PASSWORD=replace_with_local_secret
 
 ALLOW_DATABASE_RECREATE=NO
 
 WORK_ROOT=.build-work
 ```
 
-## Configuration Variables
+## Environment Variables
 
 ### `DB_HOST`
 
-Hostname of the MySQL server.
-
-For a local installation:
-
-```text
-127.0.0.1
-```
+MySQL server hostname.
 
 ### `DB_PORT`
 
 MySQL server port.
 
-Default:
+Default MySQL port:
 
 ```text
 3306
@@ -267,43 +253,37 @@ Default:
 
 ### `DB_ADMIN_USER`
 
-MySQL account used to create the database and database objects.
-
-Example:
-
-```text
-root
-```
+Administrative MySQL account used to create the database and database objects.
 
 ### `DB_ADMIN_PASSWORD`
 
-Password for the MySQL administrative account.
+Password for the administrative MySQL account.
 
-The real password must be stored only in the local `.env` file and must never be committed to Git.
+Do not commit this password.
 
 ### `ALLOW_DATABASE_RECREATE`
 
-Controls whether the build may replace an existing database.
+Controls protection against accidentally replacing an existing database.
 
-Recommended default:
+Recommended value for final/release builds:
 
 ```text
 NO
 ```
 
-For an intentionally disposable development/test database:
+During deliberate local development rebuilds:
 
 ```text
 YES
 ```
 
-When recreation is enabled, the build may drop the target database before rebuilding it.
+may be used when replacement of the target database is intentional.
 
 ### `WORK_ROOT`
 
-Directory used for temporary tagged repository clones and build logs.
+Temporary location used by the build system for tagged repository retrieval, logs, and intermediate build artifacts.
 
-Example:
+Default:
 
 ```text
 .build-work
@@ -311,9 +291,9 @@ Example:
 
 ---
 
-# Secret Protection
+# 7. Secret Protection
 
-The following files/directories should remain excluded from Git:
+The following should remain excluded from Git:
 
 ```text
 build/.env
@@ -325,74 +305,41 @@ __pycache__/
 .DS_Store
 ```
 
-A real database password, API token, or other secret must never be committed to the repository.
+The repository contains `config.example.env`, but must not contain real database credentials.
 
 ---
 
-# Versioned Builds
+# 8. Tagged Builds
 
-Database builds are performed from an exact Git tag rather than directly from the changing `main` branch.
+The build system retrieves and builds an exact tagged version of the repository rather than the changing working branch.
 
-This ensures that a database build can be reproduced from a specific repository state.
+A release tag should identify one immutable project state.
 
-Development tags may use names such as:
-
-```text
-v0.1.0-test
-v0.1.1-test
-```
-
-Submission/release builds should use a stable release tag such as:
-
-```text
-v1.0.0
-```
-
-The build process verifies that the resolved repository commit exactly matches the requested Git tag.
-
----
-
-# Creating a Release Tag
-
-Before creating a release tag, ensure all intended files are committed:
-
-```bash
-git status
-```
-
-Then:
-
-```bash
-git add .
-git commit -m "Prepare database release"
-git push
-```
-
-Create the release tag:
+Example:
 
 ```bash
 git tag v1.0.0
-```
-
-Push the tag:
-
-```bash
 git push origin v1.0.0
 ```
 
-The release tag should be created only after the repository contents intended for submission are committed.
+The build process:
+
+1. Retrieves the repository.
+2. Checks out the requested tag.
+3. Confirms that the checked-out commit exactly matches that tag.
+4. Resolves and records the Git commit SHA.
+5. Validates the database manifest.
+6. Executes SQL files in manifest order.
+7. Runs object validation.
+8. Runs data validation.
+9. Runs smoke tests.
+10. Records the final build result.
 
 ---
 
-# Building and Initializing the Database
+# 9. Build Command
 
-Make the Bash build script executable:
-
-```bash
-chmod +x build/build_database.sh
-```
-
-Run the build from the repository root:
+Run the build from the project repository:
 
 ```bash
 ./build/build_database.sh \
@@ -402,388 +349,270 @@ Run the build from the repository root:
     document_portal_demo
 ```
 
-Arguments are:
+Arguments:
 
 ```text
-1. GitHub repository owner
-2. GitHub repository name
-3. Git version tag
-4. Target MySQL database name
+1. GitHub owner
+2. Repository name
+3. Exact release tag
+4. Target database name
 ```
 
-Example development build:
-
-```bash
-./build/build_database.sh \
-    sanikadeshmukh3 \
-    Digital-Document-Signing-Portal \
-    v0.1.6-test \
-    document_portal_test
-```
-
----
-
-# Build Process
-
-The build wrapper performs the following sequence:
+Example target database:
 
 ```text
-Validate required arguments and configuration
-            ↓
-Connect to MySQL
-            ↓
-Clone the GitHub repository
-            ↓
-Fetch the requested Git tag
-            ↓
-Verify the exact tag and commit SHA
-            ↓
-Validate the manifest and SQL files
-            ↓
-Protect or recreate the target database
-            ↓
-Create the database
-            ↓
-Create schema tables
-            ↓
-Create foreign keys, constraints, and indexes
-            ↓
-Create views
-            ↓
-Create functions
-            ↓
-Create stored procedures
-            ↓
-Create triggers
-            ↓
-Create database roles
-            ↓
-Apply privileges
-            ↓
-Load reference data
-            ↓
-Load realistic sample data
-            ↓
-Validate database objects
-            ↓
-Validate seeded data
-            ↓
-Run smoke tests
-            ↓
-Verify build
+document_portal_demo
 ```
 
-The build stops immediately if a required step fails.
-
-Dependent scripts are not executed after a failed script.
-
----
-
-# Manifest Execution Order
-
-The current manifest executes:
-
-```text
-database/00_create_database.sql
-
-database/01_schema/010_reference_tables.sql
-database/01_schema/020_core_tables.sql
-database/01_schema/030_relationship_tables.sql
-database/01_schema/040_constraints_indexes.sql
-
-database/02_programability/010_views.sql
-database/02_programability/020_functions.sql
-database/02_programability/030_procedures.sql
-database/02_programability/040_triggers.sql
-
-database/03_security/010_roles.sql
-database/03_security/020_grants.sql
-
-database/04_seed/010_reference_data.sql
-database/04_seed/020_sample_data.sql
-
-database/05_validation/010_object_validation.sql
-database/05_validation/020_data_validation.sql
-database/05_validation/030_smoke_tests.sql
-```
-
-The order is intentional because later objects depend on earlier objects.
-
-For example:
-
-- Core tables must exist before foreign keys are added.
-- Tables must exist before views, procedures, functions, and triggers reference them.
-- Roles must exist before grants are assigned.
-- Reference data must exist before sample transactional data is loaded.
-- Validation runs only after the complete database and seed data have been created.
-
----
-
-# Existing Database Protection
-
-The build does not silently replace an existing database.
-
-If the target database already exists while:
+For a release build, using a new database name with:
 
 ```text
 ALLOW_DATABASE_RECREATE=NO
 ```
 
-the build should stop rather than overwrite it.
+is recommended.
 
-For an intentionally disposable classroom/development database, set:
+---
+
+# 10. Build Order
+
+`database/manifest.txt` is the authoritative SQL execution order.
+
+The build runs the database scripts in dependency order:
+
+```text
+00_create_database.sql
+
+01_schema/
+    reference tables
+    core tables
+    relationship tables
+    constraints and indexes
+
+02_programability/
+    views
+    functions
+    procedures
+    triggers
+
+03_security/
+    roles
+    grants
+
+04_seed/
+    reference data
+    sample data
+
+05_validation/
+    object validation
+    data validation
+    smoke tests
+```
+
+The build stops immediately if a required SQL script fails.
+
+The `06_demo_tests` directory is intentionally not part of the manifest because those files exercise failure scenarios and modify demonstration data after the validated database build.
+
+---
+
+# 11. Existing Database Protection
+
+The build process checks whether the target database already exists.
+
+With:
+
+```text
+ALLOW_DATABASE_RECREATE=NO
+```
+
+the build must stop rather than silently replace an existing database.
+
+Database recreation should only occur when:
 
 ```text
 ALLOW_DATABASE_RECREATE=YES
 ```
 
-before rebuilding.
-
-This should only be enabled when replacement of the target database is intentional.
+has been deliberately configured for a local/test build.
 
 ---
 
-# Database Initialization Data
+# 12. Initial Data
 
-Initialization is performed automatically by the normal manifest.
+The build loads:
 
-## Reference Data
+- controlled reference values
+- business roles
+- sample users
+- user-role assignments
+- documents
+- document versions
+- workflows
+- workflow steps
+- workflow participants
+- approval decisions
+- signatures
+- representative audit records
 
-The build loads controlled domain values from:
+The reference-data seed currently contains **42 required controlled values**.
 
-```text
-database/04_seed/010_reference_data.sql
-```
+Sample data demonstrates:
 
-The validated seed currently contains:
-
-```text
-42 reference values
-```
-
-These cover controlled domains including:
-
-- Account status
-- Document status
-- Document classification
-- Document version status
-- Workflow status
-- Workflow purpose/type
-- Workflow step type
-- Workflow step status
-- Participant assignment status
-- Assigned action
-- Approval decision
-- Signature status
-
-## Sample Data
-
-Realistic fictional workflow data is loaded from:
-
-```text
-database/04_seed/020_sample_data.sql
-```
-
-The sample data includes examples of:
-
-- A document with a current version
-- An active sequential workflow
-- A completed workflow
-- A rejected workflow
-- A cancelled workflow
-- An active parallel workflow
-- Approval decisions
-- Signature records
-- Audit-history records
-
-All project data is fictional and intended only for testing and demonstration.
+- completed workflow history
+- an active sequential workflow
+- rejected workflow behavior
+- cancelled workflow behavior
+- parallel workflow steps
+- approval history
+- signature history
+- outstanding work
+- system and user audit events
 
 ---
 
-# Validation
+# 13. Database Programmability
 
-The normal build automatically runs three validation stages.
+## Views
 
-## Object Validation
-
-```text
-database/05_validation/010_object_validation.sql
-```
-
-Validates the presence of required:
-
-- Tables
-- Views
-- Functions
-- Stored procedures
-- Triggers
-- Keys and constraints
-- Important indexes
-- Database roles
-
-A successful validation reports:
+The implementation includes:
 
 ```text
-OBJECT VALIDATION PASSED: all required objects are present.
+vw_ParticipantWorklist
+vw_OutstandingActions
+vw_WorkflowDetail
+vw_DocumentVersionHistory
+vw_DocumentHistory
+vw_AuditHistory
 ```
 
-The tested build currently verifies:
+## Functions
+
+The implementation includes:
+
+```text
+fn_user_has_role
+fn_all_predecessors_complete
+fn_step_required_work_complete
+fn_workflow_required_work_complete
+```
+
+## Procedures
+
+The implementation includes:
+
+```text
+sp_advance_workflow
+sp_initiate_workflow
+sp_complete_review_acknowledgement
+sp_record_approval_decision
+sp_record_signature
+sp_cancel_workflow
+sp_create_document_version
+sp_expire_workflows
+```
+
+### Controlled Document-Version Creation
+
+`sp_create_document_version` validates ownership and version uniqueness, creates the version transactionally, and records the corresponding audit event.
+
+### Workflow Expiration
+
+`sp_expire_workflows` identifies eligible expired active workflows, transitions them to `EXPIRED`, cancels outstanding steps and participant assignments, and records expiration audit events.
+
+## Triggers
+
+The current implementation contains triggers that protect finalized and append-only records from prohibited update/delete operations, including:
+
+- finalized `DocumentVersion` records
+- `ApprovalDecision`
+- `Signature`
+- `AuditLog`
+
+---
+
+# 14. Object Validation
+
+The object-validation script confirms the presence and structure of the required database objects.
+
+Expected implementation totals include:
 
 ```text
 12 tables
-10 routines
+4 functions
+8 procedures
+12 routines total
 8 triggers
+4 database roles
 ```
+
+It also validates required:
+
+- primary keys
+- composite keys
+- unique constraints
+- foreign keys
+- indexes
+- views
+- procedures
+- functions
+- triggers
+- roles
 
 ---
 
-## Data Validation
+# 15. Data Validation
 
-```text
-database/05_validation/020_data_validation.sql
-```
+The data-validation script verifies:
 
-Checks seeded data and relational/business invariants including:
-
-- Required reference-domain values
-- Foreign-key/domain consistency
-- Document/version relationships
-- Workflow/document-version consistency
-- Valid workflow statuses
-- Participant roles
-- Approval/signature consistency
-- Seed row counts
-
-A successful validation reports:
-
-```text
-DATA VALIDATION PASSED: seeded content satisfies all invariants.
-```
-
----
-
-## Smoke Tests
-
-```text
-database/05_validation/030_smoke_tests.sql
-```
-
-Exercises representative queries including:
-
-- Outstanding participant actions
-- Per-participant worklists
-- Document history
-- Workflow detail
-- Document-version history
-- Approval-decision history
-- Signature/version consistency
-- Audit history
-- Query execution-plan/index verification
+- required `ReferenceData` values
+- valid foreign-key domains
+- required seed-data counts
+- workflow/document consistency
+- workflow/document-version consistency
+- participant-role consistency
+- other project invariants
 
 A successful run reports:
 
 ```text
-SMOKE TESTS COMPLETED.
-```
-
-The tested participant-worklist query uses:
-
-```text
-idx_WorkflowParticipant_User_Status_DueDate
-```
-
-for its indexed lookup.
-
----
-
-# Successful Build
-
-A fully successful build ends with output similar to:
-
-```text
-Build verification: tables=12, routines=10, triggers=8
-
-BUILD SUCCEEDED
-```
-
-The final line from the Bash wrapper should indicate that the database build completed successfully.
-
----
-
-# Manual Verification
-
-After a successful build, connect to MySQL:
-
-```bash
-mysql \
-  --host=127.0.0.1 \
-  --port=3306 \
-  --user=root \
-  -p
-```
-
-Select the database:
-
-```sql
-USE document_portal_demo;
-```
-
-Inspect tables and views:
-
-```sql
-SHOW FULL TABLES;
-```
-
-Inspect procedures:
-
-```sql
-SHOW PROCEDURE STATUS
-WHERE Db = 'document_portal_demo';
-```
-
-Inspect functions:
-
-```sql
-SHOW FUNCTION STATUS
-WHERE Db = 'document_portal_demo';
-```
-
-Inspect triggers:
-
-```sql
-SHOW TRIGGERS;
-```
-
-Inspect selected row counts:
-
-```sql
-SELECT COUNT(*) FROM ReferenceData;
-SELECT COUNT(*) FROM `User`;
-SELECT COUNT(*) FROM Role;
-SELECT COUNT(*) FROM UserRole;
-SELECT COUNT(*) FROM Document;
-SELECT COUNT(*) FROM DocumentVersion;
-SELECT COUNT(*) FROM Workflow;
-SELECT COUNT(*) FROM WorkflowStep;
-SELECT COUNT(*) FROM WorkflowParticipant;
-SELECT COUNT(*) FROM ApprovalDecision;
-SELECT COUNT(*) FROM Signature;
-SELECT COUNT(*) FROM AuditLog;
+DATA VALIDATION PASSED
 ```
 
 ---
 
-# Exception and Transaction Tests
+# 16. Smoke Tests
 
-Exception and rollback tests are stored separately from the normal build:
+The normal build executes smoke tests after initialization.
+
+Representative tests include:
+
+- outstanding-action worklist
+- participant worklist
+- workflow detail
+- document history
+- version history
+- approval history
+- signature history
+- audit history
+- query execution-plan verification
+
+A successful run reports:
 
 ```text
-database/06_demo_tests/010_exception_transaction_tests.sql
+SMOKE TESTS COMPLETED
 ```
 
-These tests are not included in `manifest.txt` because they intentionally attempt operations that should fail.
+The worklist performance test uses `EXPLAIN` and verifies use of the participant worklist index where appropriate.
 
-Run them only after the standard build succeeds:
+---
+
+# 17. Demo and Exception Tests
+
+Demonstration tests are stored separately from the normal build manifest.
+
+## Exception / Transaction Tests
+
+Run:
 
 ```bash
 mysql \
@@ -795,73 +624,85 @@ mysql \
   < database/06_demo_tests/010_exception_transaction_tests.sql
 ```
 
-The test script currently verifies:
+These tests demonstrate:
 
-### Test 1 — Unauthorized Approval
+1. Unauthorized approval rejection
+2. Action rejection against a cancelled workflow
+3. Required rejection-reason validation
+4. Forced mid-transaction rollback
+5. Direct UNIQUE constraint enforcement
+6. `AuditLog` update/delete protection
+7. Locked `DocumentVersion` update/delete protection
 
-An unassigned user attempts to complete another participant's approval.
-
-Expected result:
-
-```text
-REJECTED
-```
-
-The approval record, assignment status, and workflow status must remain unchanged.
-
-### Test 2 — Action on Cancelled Workflow
-
-A participant attempts an ordinary workflow action after the workflow has been cancelled.
-
-Expected result:
+A successful run ends with:
 
 ```text
-REJECTED
+ALL EXCEPTION / TRANSACTION / CONSTRAINT / IMMUTABILITY TESTS PASSED
 ```
 
-The workflow and participant assignment must remain cancelled.
+## Positive Lifecycle Tests
 
-### Test 3 — Rejection Without Required Reason
+Run:
 
-An approver attempts to reject an approval without supplying the required rejection reason.
+```bash
+mysql \
+  --host=127.0.0.1 \
+  --port=3306 \
+  --user=root \
+  -p \
+  document_portal_demo \
+  < database/06_demo_tests/020_positive_lifecycle_tests.sql
+```
 
-Expected result:
+These tests demonstrate:
+
+1. Controlled positive document-version creation
+2. Workflow expiration
+3. Cancellation of outstanding workflow steps
+4. Cancellation of outstanding participant assignments
+5. Associated audit-event creation
+
+A successful run ends with:
 
 ```text
-REJECTED
+ALL POSITIVE LIFECYCLE TESTS PASSED
 ```
 
-No approval decision should be created and workflow state must remain unchanged.
-
-### Test 4 — Transaction Rollback
-
-Workflow initiation intentionally fails because of invalid participant/role data.
-
-Expected result:
-
-```text
-ROLLBACK
-```
-
-The failed operation must leave no partial:
-
-- Workflow
-- WorkflowStep
-- WorkflowParticipant
-- AuditLog state change
-- DocumentVersion lock state change
-
-A successful exception-test run ends with:
-
-```text
-ALL EXCEPTION / TRANSACTION TESTS PASSED
-```
+Because workflow expiration is a batch operation, positive lifecycle tests should be run after the pristine build/smoke-test evidence has been captured.
 
 ---
 
-# Security and Entitlements
+# 18. Transaction and Rollback Behavior
 
-The build creates the following MySQL database roles:
+Important multi-table operations execute transactionally.
+
+Stored procedures use:
+
+```text
+START TRANSACTION
+COMMIT
+ROLLBACK
+EXIT HANDLER FOR SQLEXCEPTION
+RESIGNAL
+```
+
+where appropriate.
+
+The demo suite contains a forced mid-transaction failure that proves a partially started workflow operation does not leave:
+
+- a partial `Workflow`
+- partial `WorkflowStep` rows
+- partial `WorkflowParticipant` rows
+- incorrect audit rows
+- an incorrectly locked `DocumentVersion`
+
+after rollback.
+
+---
+
+# 19. Security and Roles
+
+The implementation defines the following MySQL roles:
 
 ```text
 document_portal_app
@@ -870,141 +711,205 @@ document_portal_auditor
 document_portal_admin
 ```
 
-These roles are distinct from the target database name.
+Authorization is enforced through a combination of:
 
-The target schema is selected dynamically at build time, while MySQL role names remain fixed.
+- database roles and grants
+- controlled stored procedures
+- participant/role relationships
+- workflow-state checks
+- assignment-state checks
+- immutable-history controls
 
-Security responsibilities are divided among database grants, controlled stored procedures, views, constraints, and business-rule validation.
-
-Protected historical records include:
-
-- Completed approval decisions
-- Signature records
-- Locked document versions
-- Audit records
-
-Triggers prevent prohibited updates or deletions to protected historical data.
+Business authorization requires more than the existence of a database account. Controlled procedures validate applicable owner, participant, role, workflow, step, and assignment conditions.
 
 ---
 
-# Audit History
+# 20. Audit and Historical Protection
 
-`AuditLog` stores business-event history including:
+`AuditLog` records representative business events using:
 
-- Actor
-- Event timestamp
-- Event type
-- Affected record type
-- Affected record identifier
-- Transaction reference
-- Prior/new value context where applicable
-- Change reason where applicable
+- actor
+- event timestamp
+- event type
+- affected record type
+- affected record identifier
+- transaction reference
+- prior-value context where appropriate
+- new-value context where appropriate
+- change reason where appropriate
 
-Audit records are protected from normal update and deletion.
+Audit records are append-only within the supported application design.
 
-Audit/history views support reconstruction of significant document and workflow activity.
+Database triggers prevent ordinary update and deletion of existing audit records.
 
----
+Additional triggers prevent modification/deletion of protected finalized records such as locked document versions, completed approvals, and signatures.
 
-# Build Failure Handling
-
-The build is designed to stop on failures rather than continuing with an incomplete database.
-
-Failure conditions include:
-
-- Missing command-line arguments
-- Missing environment configuration
-- Missing Python dependencies
-- MySQL connection failure
-- Git repository retrieval failure
-- Missing or incorrect Git tag
-- Missing manifest
-- Missing SQL script
-- Existing database without explicit recreation permission
-- SQL/schema failure
-- Validation failure
-- Smoke-test failure
-
-The failed SQL file and error context are reported in the build output.
+Audit-history views support chronological reconstruction of business activity.
 
 ---
 
-# Build Logs
+# 21. Performance and Indexing
 
-Build execution records the selected:
+Indexes are defined for common operational access paths, including:
 
-- Version tag
-- Git commit SHA
-- Timestamp
-- SQL script path
-- Execution status
-- Failure context where applicable
+- documents by owner
+- documents by lifecycle status
+- workflows by document/version/status
+- workflows by expiration
+- workflow steps by workflow and sequence
+- workflow participants by user/status/due date
+- workflow participants by step/status/required flag
+- participant roles
+- audit events by actor/time
+- audit events by affected record/time
+- transaction references
 
-Temporary build working files and logs are stored under the configured:
+The smoke tests include `EXPLAIN` evidence for the participant worklist query.
+
+---
+
+# 22. Build Logs and Demo Evidence
+
+The build system creates timestamped logs under the temporary build workspace.
+
+Final release evidence should be copied into the repository's demo-evidence area rather than relying only on the temporary `.build-work` directory.
+
+Example:
 
 ```text
-WORK_ROOT
+docs/demo_evidence/
+├── build_logs/
+│   └── build_v1.0.0_<timestamp>.log
+└── validation/
+    ├── exception_tests_v1.0.0.txt
+    └── lifecycle_tests_v1.0.0.txt
 ```
 
-directory.
+The final build log should contain:
 
-These temporary build artifacts should not be committed unless intentionally retained as demonstration evidence.
+- build timestamp
+- requested version/tag
+- resolved Git commit SHA
+- target database name
+- manifest/script execution order
+- per-script execution result
+- object-validation output
+- data-validation output
+- smoke-test output
+- final object counts
+- build success/failure status
+- error details for any failed build
+
+The final successful build evidence should be retained for the release submitted to the course.
+
+Do not include database passwords or other secrets in evidence files.
 
 ---
 
-# Reproducing the Project From Scratch
+# 23. Failure Handling
 
-A new evaluator can reproduce the database using the following sequence.
+The build stops when it encounters:
 
-## 1. Clone the repository
+- missing configuration
+- unavailable required tooling
+- repository/tag retrieval failure
+- exact-tag verification failure
+- missing manifest
+- missing SQL file
+- invalid build contents
+- unavailable database server
+- protected existing target database
+- schema-build failure
+- seed-data failure
+- object-validation failure
+- data-validation failure
+- smoke-test failure
 
-```bash
-git clone https://github.com/sanikadeshmukh3/Digital-Document-Signing-Portal.git
-cd Digital-Document-Signing-Portal
-```
+Database procedures independently use transactional error handling to prevent partial business transactions.
 
-## 2. Create and activate a Python environment
+---
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
+# 24. Manual Verification
 
-## 3. Install Python dependencies
-
-```bash
-python -m pip install -r requirements.txt
-```
-
-## 4. Create local configuration
-
-```bash
-cp build/config.example.env build/.env
-```
-
-Update the local MySQL username and password in:
-
-```text
-build/.env
-```
-
-## 5. Verify MySQL
+After a successful build:
 
 ```bash
 mysql \
   --host=127.0.0.1 \
   --port=3306 \
   --user=root \
-  -p
+  -p \
+  document_portal_demo
 ```
 
-## 6. Make the build wrapper executable
+Example checks:
+
+```sql
+SHOW TABLES;
+```
+
+```sql
+SHOW PROCEDURE STATUS
+WHERE Db = 'document_portal_demo';
+```
+
+```sql
+SHOW FUNCTION STATUS
+WHERE Db = 'document_portal_demo';
+```
+
+```sql
+SHOW TRIGGERS;
+```
+
+```sql
+SELECT *
+FROM vw_OutstandingActions;
+```
+
+```sql
+SELECT *
+FROM vw_DocumentVersionHistory;
+```
+
+```sql
+SELECT *
+FROM vw_AuditHistory
+ORDER BY EventDateTime, AuditLogID;
+```
+
+---
+
+# 25. Clean Reproduction Procedure
+
+A new evaluator should be able to reproduce the database with the following process:
 
 ```bash
-chmod +x build/build_database.sh
+git clone <repository-url>
+cd Digital-Document-Signing-Portal
 ```
 
-## 7. Run the tagged release build
+Create and activate the Python environment:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
+
+Create local configuration:
+
+```bash
+cp build/config.example.env build/.env
+```
+
+Configure the local MySQL credentials in:
+
+```text
+build/.env
+```
+
+Then execute the tagged build:
 
 ```bash
 ./build/build_database.sh \
@@ -1014,68 +919,7 @@ chmod +x build/build_database.sh
     document_portal_demo
 ```
 
-## 8. Confirm successful validation
-
-Verify that the output contains:
-
-```text
-OBJECT VALIDATION PASSED
-DATA VALIDATION PASSED
-SMOKE TESTS COMPLETED
-BUILD SUCCEEDED
-```
-
-## 9. Optionally run exception/rollback tests
-
-```bash
-mysql \
-  --host=127.0.0.1 \
-  --port=3306 \
-  --user=root \
-  -p \
-  document_portal_demo \
-  < database/06_demo_tests/010_exception_transaction_tests.sql
-```
-
-Expected final result:
-
-```text
-ALL EXCEPTION / TRANSACTION TESTS PASSED
-```
-
-At this point the database is fully initialized and ready for project demonstration.
+The expected result is a successfully initialized and validated database containing the required schema, programmable objects, security objects, reference data, sample data, and validation evidence.
 
 ---
-
-# Project Documentation
-
-Project documentation is maintained in:
-
-```text
-docs/
-```
-
-and includes:
-
-- Functional Requirements Document (FRD)
-- Technical Design Document (TDD)
-- Entity Relationship Diagram (ERD)
-
-The implementation is intended to remain traceable across:
-
-```text
-FRD requirement
-    ↓
-TDD design
-    ↓
-ERD entity/relationship
-    ↓
-SQL implementation
-    ↓
-constraint/procedure/trigger/view
-    ↓
-test case
-    ↓
-demonstration evidence
-```
 

@@ -3,7 +3,7 @@ build/.env
 
 # Build workspace and logs
 .build-work/
-*.log
+
 
 # Local working/scratch files (not part of the project deliverable)
 .agents/
