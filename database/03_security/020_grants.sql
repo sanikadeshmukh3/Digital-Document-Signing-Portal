@@ -113,6 +113,14 @@ GRANT EXECUTE ON PROCEDURE
     `{{TARGET_DB}}`.sp_cancel_workflow
 TO 'document_portal_app';
 
+GRANT EXECUTE ON PROCEDURE 
+    `{{TARGET_DB}}`.sp_create_document_version
+TO 'document_portal_app';
+
+GRANT EXECUTE ON PROCEDURE 
+    `{{TARGET_DB}}`.sp_expire_workflows
+TO 'document_portal_admin';
+
 
 -- sp_advance_workflow is an internal helper.
 --

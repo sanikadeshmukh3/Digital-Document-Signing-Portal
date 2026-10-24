@@ -1929,5 +1929,483 @@ BEGIN
 
 END//
 
+-- ============================================================
+-- 7. sp_create_document_version
+--
+-- Purpose:
+--   Create a new CURRENT DocumentVersion for a document owned
+--   by the requesting user.
+--
+-- Rules:
+--   - Document must exist.
+--   - Requesting user must own the document.
+--   - VersionNumber must be positive and unique within document.
+--   - No other CURRENT version may already exist.
+--   - New version is created as CURRENT.
+--   - Audit row is created in same transaction.
+-- ============================================================
+
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS sp_create_document_version $$
+
+CREATE PROCEDURE sp_create_document_version(
+    IN p_owner_user_id BIGINT UNSIGNED,
+    IN p_document_id BIGINT UNSIGNED,
+    IN p_version_number INT UNSIGNED,
+    IN p_effective_information VARCHAR(255)
+)
+BEGIN
+    DECLARE v_owner_user_id BIGINT UNSIGNED;
+    DECLARE v_current_status_id BIGINT UNSIGNED;
+
+    DECLARE v_existing_version_count INT DEFAULT 0;
+    DECLARE v_current_version_count INT DEFAULT 0;
+
+    DECLARE v_document_version_id BIGINT UNSIGNED;
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+
+    START TRANSACTION;
+
+
+    -- --------------------------------------------------------
+    -- Validate required arguments.
+    -- --------------------------------------------------------
+
+    IF p_owner_user_id IS NULL
+       OR p_document_id IS NULL
+       OR p_version_number IS NULL THEN
+
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Document owner, document ID, and version number are required.';
+    END IF;
+
+
+    IF p_version_number = 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Version number must be greater than zero.';
+    END IF;
+
+
+    -- --------------------------------------------------------
+    -- Validate document and ownership.
+    -- FOR UPDATE protects ownership/document state during txn.
+    -- --------------------------------------------------------
+
+    SELECT OwnerUserID
+    INTO v_owner_user_id
+    FROM Document
+    WHERE DocumentID = p_document_id
+    FOR UPDATE;
+
+
+    IF v_owner_user_id IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Document does not exist.';
+    END IF;
+
+
+    IF v_owner_user_id <> p_owner_user_id THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Only the document owner may create a document version.';
+    END IF;
+
+
+    -- --------------------------------------------------------
+    -- Prevent duplicate version number.
+    -- --------------------------------------------------------
+
+    SELECT COUNT(*)
+    INTO v_existing_version_count
+    FROM DocumentVersion
+    WHERE DocumentID = p_document_id
+      AND VersionNumber = p_version_number;
+
+
+    IF v_existing_version_count > 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Version number already exists for this document.';
+    END IF;
+
+
+    -- --------------------------------------------------------
+    -- Resolve CURRENT status.
+    -- --------------------------------------------------------
+
+    SELECT ReferenceDataID
+    INTO v_current_status_id
+    FROM ReferenceData
+    WHERE DomainName = 'DOCUMENT_VERSION_STATUS'
+      AND Code = 'CURRENT'
+      AND IsActive = TRUE
+    LIMIT 1;
+
+
+    IF v_current_status_id IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'CURRENT document version status is not configured.';
+    END IF;
+
+
+    -- --------------------------------------------------------
+    -- Enforce at most one CURRENT version.
+    -- With the current status model, a document cannot receive
+    -- another CURRENT version until the existing CURRENT version
+    -- has transitioned elsewhere.
+    -- --------------------------------------------------------
+
+    SELECT COUNT(*)
+    INTO v_current_version_count
+    FROM DocumentVersion
+    WHERE DocumentID = p_document_id
+      AND CurrentVersionStatusID = v_current_status_id;
+
+
+    IF v_current_version_count > 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Document already has a CURRENT version.';
+    END IF;
+
+
+    -- --------------------------------------------------------
+    -- Create version.
+    -- --------------------------------------------------------
+
+    INSERT INTO DocumentVersion
+    (
+        DocumentID,
+        VersionNumber,
+        EffectiveInformation,
+        CreatedByUserID,
+        CurrentVersionStatusID,
+        LockedDateTime
+    )
+    VALUES
+    (
+        p_document_id,
+        p_version_number,
+        p_effective_information,
+        p_owner_user_id,
+        v_current_status_id,
+        NULL
+    );
+
+
+    SET v_document_version_id = LAST_INSERT_ID();
+
+
+    -- --------------------------------------------------------
+    -- Audit event.
+    -- --------------------------------------------------------
+
+    INSERT INTO AuditLog
+    (
+        ActorUserID,
+        EventType,
+        AffectedRecordType,
+        AffectedRecordID,
+        TransactionReference,
+        PriorValueContext,
+        NewValueContext,
+        ChangeReason
+    )
+    VALUES
+    (
+        p_owner_user_id,
+        'DOCUMENT_VERSION_CREATED',
+        'DocumentVersion',
+        v_document_version_id,
+        CONCAT('DOCVER-', v_document_version_id),
+        NULL,
+        CONCAT(
+            'DocumentID=', p_document_id,
+            '; VersionNumber=', p_version_number,
+            '; Status=CURRENT'
+        ),
+        'Document owner created a new document version.'
+    );
+
+
+    COMMIT;
+
+
+    SELECT
+        v_document_version_id AS DocumentVersionID,
+        p_document_id AS DocumentID,
+        p_version_number AS VersionNumber,
+        'CURRENT' AS VersionStatus;
+
+END $$
+
+-- ============================================================
+-- 8. sp_expire_workflows
+--
+-- Purpose:
+--   Expire ACTIVE workflows whose ExpirationDateTime has passed.
+--
+-- Rules:
+--   - Only ACTIVE workflows are considered.
+--   - ExpirationDateTime must be non-null and <= current time.
+--   - Outstanding steps become CANCELLED.
+--   - Outstanding participant assignments become CANCELLED.
+--   - Completed/rejected/declined historical actions are preserved.
+--   - One audit row is inserted per expired workflow.
+-- ============================================================
+
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS sp_expire_workflows $$
+
+CREATE PROCEDURE sp_expire_workflows(
+    IN p_actor_user_id BIGINT UNSIGNED
+)
+BEGIN
+    DECLARE v_done INT DEFAULT FALSE;
+
+    DECLARE v_workflow_id BIGINT UNSIGNED;
+
+    DECLARE v_active_workflow_status_id BIGINT UNSIGNED;
+    DECLARE v_expired_workflow_status_id BIGINT UNSIGNED;
+
+    DECLARE v_pending_step_status_id BIGINT UNSIGNED;
+    DECLARE v_active_step_status_id BIGINT UNSIGNED;
+    DECLARE v_cancelled_step_status_id BIGINT UNSIGNED;
+
+    DECLARE v_pending_participant_status_id BIGINT UNSIGNED;
+    DECLARE v_active_participant_status_id BIGINT UNSIGNED;
+    DECLARE v_cancelled_participant_status_id BIGINT UNSIGNED;
+
+
+    DECLARE cur_expired_workflows CURSOR FOR
+        SELECT WorkflowID
+        FROM Workflow
+        WHERE WorkflowStatusID = v_active_workflow_status_id
+          AND ExpirationDateTime IS NOT NULL
+          AND ExpirationDateTime <= CURRENT_TIMESTAMP
+        FOR UPDATE;
+
+
+    DECLARE CONTINUE HANDLER FOR NOT FOUND
+        SET v_done = TRUE;
+
+
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+
+    START TRANSACTION;
+
+
+    -- --------------------------------------------------------
+    -- Resolve workflow statuses.
+    -- --------------------------------------------------------
+
+    SELECT ReferenceDataID
+    INTO v_active_workflow_status_id
+    FROM ReferenceData
+    WHERE DomainName = 'WORKFLOW_STATUS'
+      AND Code = 'ACTIVE'
+      AND IsActive = TRUE
+    LIMIT 1;
+
+
+    SELECT ReferenceDataID
+    INTO v_expired_workflow_status_id
+    FROM ReferenceData
+    WHERE DomainName = 'WORKFLOW_STATUS'
+      AND Code = 'EXPIRED'
+      AND IsActive = TRUE
+    LIMIT 1;
+
+
+    -- --------------------------------------------------------
+    -- Resolve step statuses.
+    -- --------------------------------------------------------
+
+    SELECT ReferenceDataID
+    INTO v_pending_step_status_id
+    FROM ReferenceData
+    WHERE DomainName = 'STEP_STATUS'
+      AND Code = 'PENDING'
+      AND IsActive = TRUE
+    LIMIT 1;
+
+
+    SELECT ReferenceDataID
+    INTO v_active_step_status_id
+    FROM ReferenceData
+    WHERE DomainName = 'STEP_STATUS'
+      AND Code = 'ACTIVE'
+      AND IsActive = TRUE
+    LIMIT 1;
+
+
+    SELECT ReferenceDataID
+    INTO v_cancelled_step_status_id
+    FROM ReferenceData
+    WHERE DomainName = 'STEP_STATUS'
+      AND Code = 'CANCELLED'
+      AND IsActive = TRUE
+    LIMIT 1;
+
+
+    -- --------------------------------------------------------
+    -- Resolve participant statuses.
+    -- --------------------------------------------------------
+
+    SELECT ReferenceDataID
+    INTO v_pending_participant_status_id
+    FROM ReferenceData
+    WHERE DomainName = 'PARTICIPANT_STATUS'
+      AND Code = 'PENDING'
+      AND IsActive = TRUE
+    LIMIT 1;
+
+
+    SELECT ReferenceDataID
+    INTO v_active_participant_status_id
+    FROM ReferenceData
+    WHERE DomainName = 'PARTICIPANT_STATUS'
+      AND Code = 'ACTIVE'
+      AND IsActive = TRUE
+    LIMIT 1;
+
+
+    SELECT ReferenceDataID
+    INTO v_cancelled_participant_status_id
+    FROM ReferenceData
+    WHERE DomainName = 'PARTICIPANT_STATUS'
+      AND Code = 'CANCELLED'
+      AND IsActive = TRUE
+    LIMIT 1;
+
+
+    -- --------------------------------------------------------
+    -- Validate required status configuration.
+    -- --------------------------------------------------------
+
+    IF v_active_workflow_status_id IS NULL
+       OR v_expired_workflow_status_id IS NULL
+       OR v_pending_step_status_id IS NULL
+       OR v_active_step_status_id IS NULL
+       OR v_cancelled_step_status_id IS NULL
+       OR v_pending_participant_status_id IS NULL
+       OR v_active_participant_status_id IS NULL
+       OR v_cancelled_participant_status_id IS NULL THEN
+
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Required expiration status reference data is missing.';
+    END IF;
+
+
+    -- --------------------------------------------------------
+    -- Process expired ACTIVE workflows.
+    -- --------------------------------------------------------
+
+    OPEN cur_expired_workflows;
+
+
+    expire_loop: LOOP
+
+        FETCH cur_expired_workflows
+        INTO v_workflow_id;
+
+
+        IF v_done THEN
+            LEAVE expire_loop;
+        END IF;
+
+
+        -- Cancel outstanding participant assignments first.
+        UPDATE WorkflowParticipant wp
+        JOIN WorkflowStep ws
+          ON ws.WorkflowStepID = wp.WorkflowStepID
+        SET
+            wp.AssignmentStatusID = v_cancelled_participant_status_id,
+            wp.CompletionDateTime = CURRENT_TIMESTAMP
+        WHERE ws.WorkflowID = v_workflow_id
+          AND wp.AssignmentStatusID IN
+          (
+              v_pending_participant_status_id,
+              v_active_participant_status_id
+          );
+
+
+        -- Cancel outstanding steps.
+        UPDATE WorkflowStep
+        SET
+            StepStatusID = v_cancelled_step_status_id,
+            CompletionDateTime = CURRENT_TIMESTAMP
+        WHERE WorkflowID = v_workflow_id
+          AND StepStatusID IN
+          (
+              v_pending_step_status_id,
+              v_active_step_status_id
+          );
+
+
+        -- Expire workflow.
+        UPDATE Workflow
+        SET
+            WorkflowStatusID = v_expired_workflow_status_id,
+            CompletionDateTime = CURRENT_TIMESTAMP
+        WHERE WorkflowID = v_workflow_id
+          AND WorkflowStatusID = v_active_workflow_status_id;
+
+
+        -- Audit.
+        INSERT INTO AuditLog
+        (
+            ActorUserID,
+            EventType,
+            AffectedRecordType,
+            AffectedRecordID,
+            TransactionReference,
+            PriorValueContext,
+            NewValueContext,
+            ChangeReason
+        )
+        VALUES
+        (
+            p_actor_user_id,
+            'WORKFLOW_EXPIRED',
+            'Workflow',
+            v_workflow_id,
+            CONCAT('WF-EXP-', v_workflow_id),
+            'WorkflowStatus=ACTIVE',
+            'WorkflowStatus=EXPIRED',
+            'Workflow expiration date/time reached.'
+        );
+
+    END LOOP;
+
+
+    CLOSE cur_expired_workflows;
+
+
+    COMMIT;
+
+
+    SELECT
+        'Workflow expiration scan completed.' AS Result;
+
+END $$
 
 DELIMITER ;

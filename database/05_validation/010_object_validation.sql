@@ -73,7 +73,9 @@ FROM (
     SELECT 'sp_complete_review_acknowledgement', 'PROCEDURE' UNION ALL
     SELECT 'sp_record_approval_decision', 'PROCEDURE' UNION ALL
     SELECT 'sp_record_signature', 'PROCEDURE' UNION ALL
-    SELECT 'sp_cancel_workflow', 'PROCEDURE'
+    SELECT 'sp_cancel_workflow', 'PROCEDURE' UNION ALL
+    SELECT 'sp_expire_workflows', 'PROCEDURE' UNION ALL
+    SELECT 'sp_create_document_version', 'PROCEDURE'
 ) r
 LEFT JOIN information_schema.ROUTINES isr
     ON isr.ROUTINE_SCHEMA = DATABASE()
@@ -282,10 +284,10 @@ BEGIN
       AND ROUTINE_NAME IN (
           'sp_advance_workflow','sp_initiate_workflow',
           'sp_complete_review_acknowledgement','sp_record_approval_decision',
-          'sp_record_signature','sp_cancel_workflow');
-    IF v_count <> 6 THEN
+          'sp_record_signature','sp_cancel_workflow', 'sp_expire_workflows', 'sp_create_document_version');
+    IF v_count <> 8 THEN
         SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Object validation failed: not all 6 required procedures are present.';
+            SET MESSAGE_TEXT = 'Object validation failed: not all 8 required procedures are present.';
     END IF;
 
     -- ----- 8 triggers -----
