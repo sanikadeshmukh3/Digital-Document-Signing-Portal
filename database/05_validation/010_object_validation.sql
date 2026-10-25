@@ -95,7 +95,8 @@ FROM (
     SELECT 'trg_Signature_PreventUpdate' UNION ALL
     SELECT 'trg_Signature_PreventDelete' UNION ALL
     SELECT 'trg_AuditLog_PreventUpdate' UNION ALL
-    SELECT 'trg_AuditLog_PreventDelete'
+    SELECT 'trg_AuditLog_PreventDelete' UNION ALL
+    SELECT 'trg_Workflow_TerminalCascade'
 ) tr
 LEFT JOIN information_schema.TRIGGERS ist
     ON ist.TRIGGER_SCHEMA = DATABASE()
@@ -302,10 +303,11 @@ BEGIN
           'trg_Signature_PreventUpdate',
           'trg_Signature_PreventDelete',
           'trg_AuditLog_PreventUpdate',
-          'trg_AuditLog_PreventDelete');
-    IF v_count <> 8 THEN
+          'trg_AuditLog_PreventDelete',
+          'trg_Workflow_TerminalCascade');
+    IF v_count <> 9 THEN
         SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Object validation failed: not all 8 required triggers are present.';
+            SET MESSAGE_TEXT = 'Object validation failed: not all 9 required triggers are present.';
     END IF;
 
     -- ----- 4 database roles (best-effort; non-fatal if unreadable) -----

@@ -541,7 +541,7 @@ Expected implementation totals include:
 4 functions
 8 procedures
 12 routines total
-8 triggers
+9 triggers
 4 database roles
 ```
 

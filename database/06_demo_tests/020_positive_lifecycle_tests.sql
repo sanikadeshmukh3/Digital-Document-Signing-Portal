@@ -569,3 +569,390 @@ DELIMITER ;
 CALL sp_test_09_expire_workflow();
 
 DROP PROCEDURE sp_test_09_expire_workflow;
+
+-- ============================================================
+-- TEST 10
+-- Trigger-driven terminal workflow cascade.
+--
+-- Proves:
+--   - Only the parent Workflow is explicitly updated.
+--   - trg_Workflow_TerminalCascade fires automatically.
+--   - ACTIVE WorkflowStep becomes CANCELLED.
+--   - ACTIVE WorkflowParticipant becomes CANCELLED.
+--   - Existing completed/history rows are not involved.
+-- ============================================================
+
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS sp_test_10_trigger_terminal_cascade $$
+
+CREATE PROCEDURE sp_test_10_trigger_terminal_cascade()
+BEGIN
+    DECLARE v_document_id BIGINT UNSIGNED;
+    DECLARE v_version_id BIGINT UNSIGNED;
+    DECLARE v_owner_id BIGINT UNSIGNED;
+
+    DECLARE v_reviewer_id BIGINT UNSIGNED;
+    DECLARE v_reviewer_role_id BIGINT UNSIGNED;
+
+    DECLARE v_workflow_id BIGINT UNSIGNED;
+    DECLARE v_step_id BIGINT UNSIGNED;
+    DECLARE v_participant_id BIGINT UNSIGNED;
+
+    DECLARE v_purpose_id BIGINT UNSIGNED;
+    DECLARE v_workflow_active_id BIGINT UNSIGNED;
+    DECLARE v_workflow_cancelled_id BIGINT UNSIGNED;
+
+    DECLARE v_step_type_id BIGINT UNSIGNED;
+    DECLARE v_step_active_id BIGINT UNSIGNED;
+
+    DECLARE v_action_id BIGINT UNSIGNED;
+    DECLARE v_participant_active_id BIGINT UNSIGNED;
+
+    DECLARE v_workflow_before VARCHAR(50);
+    DECLARE v_step_before VARCHAR(50);
+    DECLARE v_participant_before VARCHAR(50);
+
+    DECLARE v_workflow_after VARCHAR(50);
+    DECLARE v_step_after VARCHAR(50);
+    DECLARE v_participant_after VARCHAR(50);
+
+
+    -- --------------------------------------------------------
+    -- Use the document/version created in Test 8.
+    -- --------------------------------------------------------
+
+    SELECT
+        d.DocumentID,
+        dv.DocumentVersionID,
+        d.OwnerUserID
+    INTO
+        v_document_id,
+        v_version_id,
+        v_owner_id
+    FROM Document d
+    JOIN DocumentVersion dv
+      ON dv.DocumentID = d.DocumentID
+    WHERE d.Title = 'Demo Version Creation Document'
+      AND dv.VersionNumber = 1
+    ORDER BY d.DocumentID DESC
+    LIMIT 1;
+
+
+    -- --------------------------------------------------------
+    -- Resolve a valid reviewer.
+    -- --------------------------------------------------------
+
+    SELECT
+        u.UserID,
+        r.RoleID
+    INTO
+        v_reviewer_id,
+        v_reviewer_role_id
+    FROM `User` u
+    JOIN UserRole ur
+      ON ur.UserID = u.UserID
+    JOIN Role r
+      ON r.RoleID = ur.RoleID
+    WHERE u.Email = 'marcus.reed@initech.example'
+      AND r.RoleName = 'Reviewer'
+    LIMIT 1;
+
+
+    -- --------------------------------------------------------
+    -- Resolve required reference values.
+    -- --------------------------------------------------------
+
+    SELECT ReferenceDataID
+    INTO v_purpose_id
+    FROM ReferenceData
+    WHERE DomainName = 'WORKFLOW_PURPOSE_TYPE'
+      AND Code = 'REVIEW'
+    LIMIT 1;
+
+
+    SELECT ReferenceDataID
+    INTO v_workflow_active_id
+    FROM ReferenceData
+    WHERE DomainName = 'WORKFLOW_STATUS'
+      AND Code = 'ACTIVE'
+    LIMIT 1;
+
+
+    SELECT ReferenceDataID
+    INTO v_workflow_cancelled_id
+    FROM ReferenceData
+    WHERE DomainName = 'WORKFLOW_STATUS'
+      AND Code = 'CANCELLED'
+    LIMIT 1;
+
+
+    SELECT ReferenceDataID
+    INTO v_step_type_id
+    FROM ReferenceData
+    WHERE DomainName = 'STEP_TYPE'
+      AND Code = 'REVIEW'
+    LIMIT 1;
+
+
+    SELECT ReferenceDataID
+    INTO v_step_active_id
+    FROM ReferenceData
+    WHERE DomainName = 'STEP_STATUS'
+      AND Code = 'ACTIVE'
+    LIMIT 1;
+
+
+    SELECT ReferenceDataID
+    INTO v_action_id
+    FROM ReferenceData
+    WHERE DomainName = 'ASSIGNED_ACTION'
+      AND Code = 'REVIEW'
+    LIMIT 1;
+
+
+    SELECT ReferenceDataID
+    INTO v_participant_active_id
+    FROM ReferenceData
+    WHERE DomainName = 'PARTICIPANT_STATUS'
+      AND Code = 'ACTIVE'
+    LIMIT 1;
+
+
+    -- --------------------------------------------------------
+    -- Test setup:
+    -- Create ACTIVE parent Workflow.
+    -- --------------------------------------------------------
+
+    INSERT INTO Workflow
+    (
+        DocumentID,
+        DocumentVersionID,
+        InitiatorUserID,
+        WorkflowPurposeTypeID,
+        WorkflowStatusID,
+        StartDateTime,
+        ExpirationDateTime
+    )
+    VALUES
+    (
+        v_document_id,
+        v_version_id,
+        v_owner_id,
+        v_purpose_id,
+        v_workflow_active_id,
+        CURRENT_TIMESTAMP,
+        DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 30 DAY)
+    );
+
+
+    SET v_workflow_id = LAST_INSERT_ID();
+
+
+    -- --------------------------------------------------------
+    -- Create ACTIVE child step.
+    -- --------------------------------------------------------
+
+    INSERT INTO WorkflowStep
+    (
+        WorkflowID,
+        SequenceNumber,
+        StepTypeID,
+        RequiredPolicy,
+        StepStatusID,
+        ActivationDateTime,
+        CompletionDateTime,
+        DueDateTime
+    )
+    VALUES
+    (
+        v_workflow_id,
+        1,
+        v_step_type_id,
+        'ALL_REQUIRED',
+        v_step_active_id,
+        CURRENT_TIMESTAMP,
+        NULL,
+        DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 7 DAY)
+    );
+
+
+    SET v_step_id = LAST_INSERT_ID();
+
+
+    -- --------------------------------------------------------
+    -- Create ACTIVE participant.
+    -- --------------------------------------------------------
+
+    INSERT INTO WorkflowParticipant
+    (
+        WorkflowStepID,
+        UserID,
+        RoleID,
+        AssignedActionID,
+        AssignmentStatusID,
+        RequiredFlag,
+        ActivationDateTime,
+        CompletionDateTime,
+        DueDateTime
+    )
+    VALUES
+    (
+        v_step_id,
+        v_reviewer_id,
+        v_reviewer_role_id,
+        v_action_id,
+        v_participant_active_id,
+        TRUE,
+        CURRENT_TIMESTAMP,
+        NULL,
+        DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 7 DAY)
+    );
+
+
+    SET v_participant_id = LAST_INSERT_ID();
+
+
+    -- --------------------------------------------------------
+    -- Capture state BEFORE trigger execution.
+    -- --------------------------------------------------------
+
+    SELECT rd.Code
+    INTO v_workflow_before
+    FROM Workflow w
+    JOIN ReferenceData rd
+      ON rd.ReferenceDataID = w.WorkflowStatusID
+    WHERE w.WorkflowID = v_workflow_id;
+
+
+    SELECT rd.Code
+    INTO v_step_before
+    FROM WorkflowStep ws
+    JOIN ReferenceData rd
+      ON rd.ReferenceDataID = ws.StepStatusID
+    WHERE ws.WorkflowStepID = v_step_id;
+
+
+    SELECT rd.Code
+    INTO v_participant_before
+    FROM WorkflowParticipant wp
+    JOIN ReferenceData rd
+      ON rd.ReferenceDataID = wp.AssignmentStatusID
+    WHERE wp.WorkflowParticipantID = v_participant_id;
+
+
+    -- --------------------------------------------------------
+    -- THIS IS THE ONLY EXPLICIT BUSINESS UPDATE.
+    --
+    -- We do NOT update WorkflowStep.
+    -- We do NOT update WorkflowParticipant.
+    --
+    -- The trigger must perform those child updates.
+    -- --------------------------------------------------------
+
+    UPDATE Workflow
+    SET
+        WorkflowStatusID = v_workflow_cancelled_id,
+        CancellationDateTime = CURRENT_TIMESTAMP,
+        CancellationReason = 'Test 10 trigger cascade demonstration'
+    WHERE WorkflowID = v_workflow_id;
+
+
+    -- --------------------------------------------------------
+    -- Capture resulting state AFTER trigger execution.
+    -- --------------------------------------------------------
+
+    SELECT rd.Code
+    INTO v_workflow_after
+    FROM Workflow w
+    JOIN ReferenceData rd
+      ON rd.ReferenceDataID = w.WorkflowStatusID
+    WHERE w.WorkflowID = v_workflow_id;
+
+
+    SELECT rd.Code
+    INTO v_step_after
+    FROM WorkflowStep ws
+    JOIN ReferenceData rd
+      ON rd.ReferenceDataID = ws.StepStatusID
+    WHERE ws.WorkflowStepID = v_step_id;
+
+
+    SELECT rd.Code
+    INTO v_participant_after
+    FROM WorkflowParticipant wp
+    JOIN ReferenceData rd
+      ON rd.ReferenceDataID = wp.AssignmentStatusID
+    WHERE wp.WorkflowParticipantID = v_participant_id;
+
+
+    -- --------------------------------------------------------
+    -- Assertions.
+    -- --------------------------------------------------------
+
+    IF v_workflow_before <> 'ACTIVE' THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'TEST 10 FAILED: workflow was not ACTIVE before trigger test.';
+    END IF;
+
+
+    IF v_step_before <> 'ACTIVE' THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'TEST 10 FAILED: workflow step was not ACTIVE before trigger test.';
+    END IF;
+
+
+    IF v_participant_before <> 'ACTIVE' THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'TEST 10 FAILED: participant was not ACTIVE before trigger test.';
+    END IF;
+
+
+    IF v_workflow_after <> 'CANCELLED' THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'TEST 10 FAILED: parent workflow was not CANCELLED.';
+    END IF;
+
+
+    IF v_step_after <> 'CANCELLED' THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'TEST 10 FAILED: trigger did not cancel WorkflowStep.';
+    END IF;
+
+
+    IF v_participant_after <> 'CANCELLED' THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'TEST 10 FAILED: trigger did not cancel WorkflowParticipant.';
+    END IF;
+
+
+    -- --------------------------------------------------------
+    -- Demo evidence.
+    -- --------------------------------------------------------
+
+    SELECT
+        'PASS' AS Result,
+        'TEST 10 - Workflow terminal-status trigger automatically updated child records'
+            AS TestName,
+        v_workflow_id AS WorkflowID,
+        v_workflow_before AS WorkflowBefore,
+        v_workflow_after AS WorkflowAfter,
+        v_step_before AS StepBefore,
+        v_step_after AS StepAfter,
+        v_participant_before AS ParticipantBefore,
+        v_participant_after AS ParticipantAfter;
+
+END $$
+
+DELIMITER ;
+
+
+CALL sp_test_10_trigger_terminal_cascade();
+
+DROP PROCEDURE sp_test_10_trigger_terminal_cascade;
