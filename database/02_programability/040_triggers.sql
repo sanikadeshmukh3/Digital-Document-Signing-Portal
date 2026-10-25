@@ -187,101 +187,38 @@ BEGIN
 END//
 
 -- ============================================================
--- 9. Workflow Terminal Cascade
+-- 9. trg_Workflow_TerminalCascade
+--
+-- When a Workflow changes from a non-terminal state to
+-- CANCELLED, EXPIRED, or REJECTED:
+--
+--   1. Outstanding WorkflowParticipants -> CANCELLED
+--   2. Outstanding WorkflowSteps        -> CANCELLED
+--
+-- Completed historical records are preserved.
 -- ============================================================
 
-CREATE TRIGGER trg_Workflow_TerminalCascade
-AFTER UPDATE ON Workflow
-FOR EACH ROW
-BEGIN
-    DECLARE v_new_status_code VARCHAR(50);
-
-    DECLARE v_pending_step_status_id BIGINT UNSIGNED;
-    DECLARE v_active_step_status_id BIGINT UNSIGNED;
-    DECLARE v_cancelled_step_status_id BIGINT UNSIGNED;
-
-    DECLARE v_pending_participant_status_id BIGINT UNSIGNED;
-    DECLARE v_active_participant_status_id BIGINT UNSIGNED;
-    DECLARE v_cancelled_participant_status_id BIGINT UNSIGNED;
-
-
-    -- Only do work when the WorkflowStatusID actually changes.
-    IF NOT (OLD.WorkflowStatusID <=> NEW.WorkflowStatusID) THEN
-
-        SELECT Code
-        INTO v_new_status_code
-        FROM ReferenceData
-        WHERE ReferenceDataID = NEW.WorkflowStatusID
-          AND DomainName = 'WORKFLOW_STATUS'
-        LIMIT 1;
-
-
-        -- Terminal workflow states.
-        IF v_new_status_code IN (
-            'CANCELLED',
-            'EXPIRED',
-            'REJECTED'
-        ) THEN
-
-            -- -----------------------------------------------
-            -- Resolve step statuses.
-            -- -----------------------------------------------
-
-            SELECT ReferenceDataID
-            INTO v_pending_step_status_id
-            FROM ReferenceData
-            WHERE DomainName = 'STEP_STATUS'
-              AND Code = 'PENDING'
-            LIMIT 1;
-
-
-            SELECT ReferenceDataID
-            INTO v_active_step_status_id
-            FROM ReferenceData
-            WHERE DomainName = 'STEP_STATUS'
-              AND Code = 'ACTIVE'
-            LIMIT 1;
-
-
-            SELECT ReferenceDataID
-            INTO v_cancelled_step_status_id
-            FROM ReferenceData
-            WHERE DomainName = 'STEP_STATUS'
-              AND Code = 'CANCELLED'
-            LIMIT 1;
-
-
-            -- -----------------------------------------------
---
--- This provides database-level lifecycle enforcement even if a
--- terminal workflow transition occurs outside the normal
--- procedure path.
---
--- Historical COMPLETED / REJECTED / DECLINED records are not
--- modified.
--- ============================================================
+DROP TRIGGER IF EXISTS trg_Workflow_TerminalCascade;
 
 DELIMITER $$
 
-DROP TRIGGER IF EXISTS trg_Workflow_TerminalCascade $$
-
 CREATE TRIGGER trg_Workflow_TerminalCascade
 AFTER UPDATE ON Workflow
 FOR EACH ROW
 BEGIN
     DECLARE v_new_status_code VARCHAR(50);
 
-    DECLARE v_pending_step_status_id BIGINT UNSIGNED;
-    DECLARE v_active_step_status_id BIGINT UNSIGNED;
-    DECLARE v_cancelled_step_status_id BIGINT UNSIGNED;
+    DECLARE v_step_pending_id BIGINT UNSIGNED;
+    DECLARE v_step_active_id BIGINT UNSIGNED;
+    DECLARE v_step_cancelled_id BIGINT UNSIGNED;
 
-    DECLARE v_pending_participant_status_id BIGINT UNSIGNED;
-    DECLARE v_active_participant_status_id BIGINT UNSIGNED;
-    DECLARE v_cancelled_participant_status_id BIGINT UNSIGNED;
+    DECLARE v_participant_pending_id BIGINT UNSIGNED;
+    DECLARE v_participant_active_id BIGINT UNSIGNED;
+    DECLARE v_participant_cancelled_id BIGINT UNSIGNED;
 
 
-    -- Only do work when the WorkflowStatusID actually changes.
-    IF NOT (OLD.WorkflowStatusID <=> NEW.WorkflowStatusID) THEN
+    -- Only process an actual workflow-status change.
+    IF OLD.WorkflowStatusID <> NEW.WorkflowStatusID THEN
 
         SELECT Code
         INTO v_new_status_code
@@ -291,114 +228,86 @@ BEGIN
         LIMIT 1;
 
 
-        -- Terminal workflow states.
-        IF v_new_status_code IN (
-            'CANCELLED',
-            'EXPIRED',
-            'REJECTED'
-        ) THEN
+        -- Only cascade terminal workflow states.
+        IF v_new_status_code IN ('CANCELLED', 'EXPIRED', 'REJECTED') THEN
 
-            -- -----------------------------------------------
-            -- Resolve step statuses.
-            -- -----------------------------------------------
-
+            -- Step status IDs
             SELECT ReferenceDataID
-            INTO v_pending_step_status_id
+            INTO v_step_pending_id
             FROM ReferenceData
             WHERE DomainName = 'STEP_STATUS'
               AND Code = 'PENDING'
             LIMIT 1;
 
-
             SELECT ReferenceDataID
-            INTO v_active_step_status_id
+            INTO v_step_active_id
             FROM ReferenceData
             WHERE DomainName = 'STEP_STATUS'
               AND Code = 'ACTIVE'
             LIMIT 1;
 
-
             SELECT ReferenceDataID
-            INTO v_cancelled_step_status_id
+            INTO v_step_cancelled_id
             FROM ReferenceData
             WHERE DomainName = 'STEP_STATUS'
               AND Code = 'CANCELLED'
             LIMIT 1;
 
 
-            -- -----------------------------------------------
-            -- Resolve participant statuses.
-            -- -----------------------------------------------
-
+            -- Participant status IDs
             SELECT ReferenceDataID
-            INTO v_pending_participant_status_id
+            INTO v_participant_pending_id
             FROM ReferenceData
             WHERE DomainName = 'PARTICIPANT_STATUS'
               AND Code = 'PENDING'
             LIMIT 1;
 
-
             SELECT ReferenceDataID
-            INTO v_active_participant_status_id
+            INTO v_participant_active_id
             FROM ReferenceData
             WHERE DomainName = 'PARTICIPANT_STATUS'
               AND Code = 'ACTIVE'
             LIMIT 1;
 
-
             SELECT ReferenceDataID
-            INTO v_cancelled_participant_status_id
+            INTO v_participant_cancelled_id
             FROM ReferenceData
             WHERE DomainName = 'PARTICIPANT_STATUS'
               AND Code = 'CANCELLED'
             LIMIT 1;
 
 
-            -- -----------------------------------------------
             -- Cancel outstanding participant assignments.
-            -- Completed/rejected/declined history is preserved.
-            -- -----------------------------------------------
-
-            UPDATE WorkflowParticipant wp
-            JOIN WorkflowStep ws
-              ON ws.WorkflowStepID = wp.WorkflowStepID
+            UPDATE WorkflowParticipant AS wp
+            INNER JOIN WorkflowStep AS ws
+                ON ws.WorkflowStepID = wp.WorkflowStepID
             SET
-                wp.AssignmentStatusID =
-                    v_cancelled_participant_status_id,
+                wp.AssignmentStatusID = v_participant_cancelled_id,
                 wp.CompletionDateTime =
-                    COALESCE(
-                        wp.CompletionDateTime,
-                        CURRENT_TIMESTAMP
-                    )
+                    COALESCE(wp.CompletionDateTime, CURRENT_TIMESTAMP)
             WHERE ws.WorkflowID = NEW.WorkflowID
               AND wp.AssignmentStatusID IN (
-                  v_pending_participant_status_id,
-                  v_active_participant_status_id
+                    v_participant_pending_id,
+                    v_participant_active_id
               );
 
 
-            -- -----------------------------------------------
-            -- Cancel outstanding steps.
-            -- -----------------------------------------------
-
+            -- Cancel outstanding workflow steps.
             UPDATE WorkflowStep
             SET
-                StepStatusID = v_cancelled_step_status_id,
+                StepStatusID = v_step_cancelled_id,
                 CompletionDateTime =
-                    COALESCE(
-                        CompletionDateTime,
-                        CURRENT_TIMESTAMP
-                    )
+                    COALESCE(CompletionDateTime, CURRENT_TIMESTAMP)
             WHERE WorkflowID = NEW.WorkflowID
               AND StepStatusID IN (
-                  v_pending_step_status_id,
-                  v_active_step_status_id
+                    v_step_pending_id,
+                    v_step_active_id
               );
 
         END IF;
 
     END IF;
 
-END $$
+END$$
 
 DELIMITER ;
