@@ -198,9 +198,7 @@ END//
 -- Completed historical records are preserved.
 -- ============================================================
 
-DROP TRIGGER IF EXISTS trg_Workflow_TerminalCascade;
-
-DELIMITER $$
+DROP TRIGGER IF EXISTS trg_Workflow_TerminalCascade//
 
 CREATE TRIGGER trg_Workflow_TerminalCascade
 AFTER UPDATE ON Workflow
@@ -216,7 +214,6 @@ BEGIN
     DECLARE v_participant_active_id BIGINT UNSIGNED;
     DECLARE v_participant_cancelled_id BIGINT UNSIGNED;
 
-
     -- Only process an actual workflow-status change.
     IF OLD.WorkflowStatusID <> NEW.WorkflowStatusID THEN
 
@@ -226,7 +223,6 @@ BEGIN
         WHERE ReferenceDataID = NEW.WorkflowStatusID
           AND DomainName = 'WORKFLOW_STATUS'
         LIMIT 1;
-
 
         -- Only cascade terminal workflow states.
         IF v_new_status_code IN ('CANCELLED', 'EXPIRED', 'REJECTED') THEN
@@ -253,7 +249,6 @@ BEGIN
               AND Code = 'CANCELLED'
             LIMIT 1;
 
-
             -- Participant status IDs
             SELECT ReferenceDataID
             INTO v_participant_pending_id
@@ -276,11 +271,10 @@ BEGIN
               AND Code = 'CANCELLED'
             LIMIT 1;
 
-
             -- Cancel outstanding participant assignments.
-            UPDATE WorkflowParticipant AS wp
-            INNER JOIN WorkflowStep AS ws
-                ON ws.WorkflowStepID = wp.WorkflowStepID
+            UPDATE WorkflowParticipant wp
+            JOIN WorkflowStep ws
+              ON ws.WorkflowStepID = wp.WorkflowStepID
             SET
                 wp.AssignmentStatusID = v_participant_cancelled_id,
                 wp.CompletionDateTime =
@@ -290,7 +284,6 @@ BEGIN
                     v_participant_pending_id,
                     v_participant_active_id
               );
-
 
             -- Cancel outstanding workflow steps.
             UPDATE WorkflowStep
@@ -308,6 +301,6 @@ BEGIN
 
     END IF;
 
-END$$
+END//
 
 DELIMITER ;
