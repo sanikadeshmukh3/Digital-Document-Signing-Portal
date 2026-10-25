@@ -1,0 +1,41 @@
+2026-10-24 22:59:23,372 | INFO | Starting database build
+2026-10-24 22:59:23,423 | INFO | Connected to MySQL version=26.7.0
+2026-10-24 22:59:23,423 | INFO | Cloning repository sanikadeshmukh3/Digital-Document-Signing-Portal
+2026-10-24 22:59:23,839 | INFO | Fetching tag v0.1.8-test
+2026-10-24 22:59:24,222 | INFO | Verified tag=v0.1.8-test; commit=de4b1f9299afd96792ae380e613184c334b74e62
+2026-10-24 22:59:24,224 | INFO | Manifest contains 16 SQL scripts
+2026-10-24 22:59:24,240 | INFO | Existing database found. Recreation explicitly authorized.
+2026-10-24 22:59:24,382 | INFO | Executing database/00_create_database.sql
+2026-10-24 22:59:24,393 | INFO | Succeeded: database/00_create_database.sql
+2026-10-24 22:59:24,393 | INFO | Executing database/01_schema/010_reference_tables.sql
+2026-10-24 22:59:24,411 | INFO | Succeeded: database/01_schema/010_reference_tables.sql
+2026-10-24 22:59:24,411 | INFO | Executing database/01_schema/020_core_tables.sql
+2026-10-24 22:59:24,468 | INFO | Succeeded: database/01_schema/020_core_tables.sql
+2026-10-24 22:59:24,468 | INFO | Executing database/01_schema/030_relationship_tables.sql
+2026-10-24 22:59:24,509 | INFO | Succeeded: database/01_schema/030_relationship_tables.sql
+2026-10-24 22:59:24,509 | INFO | Executing database/01_schema/040_constraints_indexes.sql
+2026-10-24 22:59:24,868 | INFO | Succeeded: database/01_schema/040_constraints_indexes.sql
+2026-10-24 22:59:24,868 | INFO | Executing database/02_programability/010_views.sql
+2026-10-24 22:59:24,899 | INFO | Succeeded: database/02_programability/010_views.sql
+2026-10-24 22:59:24,899 | INFO | Executing database/02_programability/020_functions.sql
+2026-10-24 22:59:24,912 | INFO | Succeeded: database/02_programability/020_functions.sql
+2026-10-24 22:59:24,913 | INFO | Executing database/02_programability/030_procedures.sql
+2026-10-24 22:59:24,947 | INFO | Succeeded: database/02_programability/030_procedures.sql
+2026-10-24 22:59:24,947 | INFO | Executing database/02_programability/040_triggers.sql
+2026-10-24 22:59:24,977 | INFO | Succeeded: database/02_programability/040_triggers.sql
+2026-10-24 22:59:24,977 | INFO | Executing database/03_security/010_roles.sql
+2026-10-24 22:59:24,993 | INFO | Succeeded: database/03_security/010_roles.sql
+2026-10-24 22:59:24,993 | INFO | Executing database/03_security/020_grants.sql
+2026-10-24 22:59:25,046 | INFO | Succeeded: database/03_security/020_grants.sql
+2026-10-24 22:59:25,046 | INFO | Executing database/04_seed/010_reference_data.sql
+2026-10-24 22:59:25,064 | INFO | Succeeded: database/04_seed/010_reference_data.sql
+2026-10-24 22:59:25,065 | INFO | Executing database/04_seed/020_sample_data.sql
+2026-10-24 22:59:25,100 | INFO | Succeeded: database/04_seed/020_sample_data.sql
+2026-10-24 22:59:25,100 | INFO | Executing database/05_validation/010_object_validation.sql
+2026-10-24 22:59:25,138 | INFO | Succeeded: database/05_validation/010_object_validation.sql
+2026-10-24 22:59:25,138 | INFO | Executing database/05_validation/020_data_validation.sql
+2026-10-24 22:59:25,168 | INFO | Succeeded: database/05_validation/020_data_validation.sql
+2026-10-24 22:59:25,168 | INFO | Executing database/05_validation/030_smoke_tests.sql
+2026-10-24 22:59:25,198 | INFO | Succeeded: database/05_validation/030_smoke_tests.sql
+2026-10-24 22:59:25,209 | INFO | Build verification: tables=12, routines=12, triggers=9
+2026-10-24 22:59:25,209 | INFO | BUILD SUCCEEDED | tag=v0.1.8-test | commit=de4b1f9299afd96792ae380e613184c334b74e62 | database=document_portal_test
