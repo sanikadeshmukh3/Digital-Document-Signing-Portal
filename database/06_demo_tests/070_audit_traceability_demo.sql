@@ -2,29 +2,18 @@
 -- File: database/06_demo_tests/070_audit_traceability_demo.sql
 -- Project: Document Workflow and E-signing Portal
 --
--- DEMO AREA 2 OF 3: AUDIT AND TRACEABILITY
+-- Purpose:
+--   Demonstrate audit and traceability. Performs audited business
+--   actions (review, approval, signature, new version) and proves
+--   each writes audit rows; queries the audit/history records for
+--   actor, event type, timestamp, affected record, and prior/new
+--   values; proves finalized and audit records cannot be silently
+--   altered, back-dated or deleted; and traces one record through
+--   its full lifecycle.
 --
---   * Perform audited business actions during the demo
---     (review, approval, signature, new document version) and prove
---     EACH ONE wrote audit rows
---   * Query audit/history: actor, event type, timestamp, affected
---     record, prior/new values, reason, transaction reference
---   * Prove finalized records and audit records cannot be silently
---     altered, back-dated or deleted
---   * Trace one record through its lifecycle (version -> workflow ->
---     steps -> decision -> signature -> completion -> next version)
---
--- Self-contained and re-runnable. Creates its own "EAR Demo" data.
--- NOT part of the normal build manifest.
---
--- ASSUMPTIONS (adjust helper calls if your procs differ):
---   sp_initiate_workflow(owner, doc, version, purpose_code, expiration, steps_json)
---   sp_create_document_version(owner, doc, version_no, effective_info)
---   sp_record_approval_decision(participant, user, decision, comments, reason)
---   sp_record_signature(participant, user, version, status, method, reference)
---   sp_complete_review_acknowledgement(participant, user)
---   Audit event type for version creation = DOCUMENT_VERSION_CREATED.
---   Column names: Signature.SignatureReference, ApprovalDecision.Comments.
+-- Important:
+--   - Self-contained and re-runnable; creates its own demo data.
+--   - This file is NOT part of the normal build manifest.
 --
 -- Database: MySQL 8.x
 -- ============================================================

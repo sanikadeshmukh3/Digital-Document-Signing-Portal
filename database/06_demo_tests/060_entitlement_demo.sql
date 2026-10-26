@@ -2,27 +2,18 @@
 -- File: database/06_demo_tests/060_entitlement_demo.sql
 -- Project: Document Workflow and E-signing Portal
 --
--- DEMO AREA 1 OF 3: ENTITLEMENT
+-- Purpose:
+--   Demonstrate entitlement enforcement: an authorized role or
+--   assignee can perform a protected action, while an unauthorized
+--   or unassigned user cannot perform the same action. Shows the
+--   enforcement layers used by the project: database-account grants,
+--   the per-user worklist view, controlled stored procedures, and
+--   the composite foreign key requiring a user to hold the role.
 --
---   * Authorized role/assignee CAN perform the protected action
---   * Unauthorized / unassigned user CANNOT perform the same action
---   * Enforcement mechanisms shown:
---       - database-account grants (append-only tables not writable)
---       - per-user worklist view (row-level visibility)
---       - controlled stored procedures (assignment + state checks)
---       - schema constraint (user must hold the role: composite FK)
---       - second protected action (document-version creation = owner only)
---
--- Self-contained and re-runnable. Creates its own "EAR Demo" data.
--- NOT part of the normal build manifest.
---
--- ASSUMPTIONS (adjust helper calls if your procs differ):
---   sp_initiate_workflow(owner, doc, version, purpose_code, expiration, steps_json)
---   sp_create_document_version(owner, doc, version_no, effective_info)
---   sp_record_approval_decision(participant, user, decision, comments, reason)
---   sp_record_signature(participant, user, version, status, method, reference)
---   sp_complete_review_acknowledgement(participant, user)
---   Run as a privileged account (reads mysql.tables_priv / mysql.db).
+-- Important:
+--   - Self-contained and re-runnable; creates its own demo data.
+--   - Run as a privileged account (reads mysql.tables_priv / mysql.db).
+--   - This file is NOT part of the normal build manifest.
 --
 -- Database: MySQL 8.x
 -- ============================================================

@@ -2,32 +2,21 @@
 -- File: database/06_demo_tests/080_resiliency_demo.sql
 -- Project: Document Workflow and E-signing Portal
 --
--- DEMO AREA 3 OF 3: RESILIENCY
+-- Purpose:
+--   Demonstrate resiliency. Forces controlled failures of a
+--   multi-step transaction (a natural constraint failure and a
+--   forced trigger failure) and proves everything rolls back, then
+--   retries with corrected input; exercises duplicate, out-of-
+--   sequence and wrong-version guards; shows business rejection with
+--   correction, cancellation and expiration; and confirms the
+--   database is still consistent after all of it.
 --
---   * Controlled failure of a multi-step transaction (two ways:
---     a natural constraint failure, and a forced failure from a
---     temporary test-only trigger) -> everything rolled back
---   * Retry with corrected input succeeds
---   * Guards: duplicate action, out-of-sequence action, wrong version
---   * Business rejection (valid outcome) + correction via new version
---   * Cancellation (trigger cascade) and expiration (batch procedure)
---   * Final consistency sweep: database still valid after all of it
---
--- Self-contained and re-runnable. Creates its own "EAR Demo" data.
--- Creates and DROPS one temporary trigger:
---   trg_Test_EAR_ForceFailure  (if the script is interrupted, run:
---   DROP TRIGGER IF EXISTS trg_Test_EAR_ForceFailure;)
--- NOT part of the normal build manifest.
---
--- ASSUMPTIONS (adjust helper calls if your procs differ):
---   sp_initiate_workflow(owner, doc, version, purpose_code, expiration, steps_json)
---   sp_create_document_version(owner, doc, version_no, effective_info)
---   sp_record_approval_decision(participant, user, decision, comments, reason)
---   sp_record_signature(participant, user, version, status, method, reference)
---   sp_complete_review_acknowledgement(participant, user)
---   sp_expire_workflows(actor)
---   A rejection moves the workflow to REJECTED; the last step completing
---   moves it to COMPLETED; participant DueDateTime comes from the step due_date.
+-- Important:
+--   - Self-contained and re-runnable; creates its own demo data.
+--   - Creates and drops one temporary trigger,
+--     trg_Test_EAR_ForceFailure. If the script is interrupted, run:
+--         DROP TRIGGER IF EXISTS trg_Test_EAR_ForceFailure;
+--   - This file is NOT part of the normal build manifest.
 --
 -- Database: MySQL 8.x
 -- ============================================================
