@@ -21,6 +21,15 @@
 -- Database: MySQL 8.x
 -- ============================================================
 
+-- Pin a portable, strict session sql_mode for the duration of this
+-- script, then restore the caller's mode at the very end. This makes
+-- the demo behave identically across platforms and MySQL setups. In
+-- particular it clears IGNORE_SPACE, under which a built-in call such
+-- as MD5(...) would otherwise be mis-resolved to a stored function
+-- and raise "FUNCTION <db>.MD5 does not exist".
+SET @ear_saved_sql_mode = @@SESSION.sql_mode;
+SET SESSION sql_mode = 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION';
+
 DROP TEMPORARY TABLE IF EXISTS ear_results;
 CREATE TEMPORARY TABLE ear_results (
     seq        INT AUTO_INCREMENT PRIMARY KEY,
@@ -598,3 +607,6 @@ DROP PROCEDURE IF EXISTS sp__ear_expect_ok;
 DROP PROCEDURE IF EXISTS sp__ear_expect_reject;
 DROP PROCEDURE IF EXISTS sp__ear_snapshot;
 DROP PROCEDURE IF EXISTS sp__ear_check;
+
+-- Restore the caller's original session sql_mode.
+SET SESSION sql_mode = @ear_saved_sql_mode;
