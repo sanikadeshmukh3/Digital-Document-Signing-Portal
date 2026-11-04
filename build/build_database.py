@@ -146,25 +146,36 @@ def calculate_file_checksum(file_path):
     return sha256.hexdigest()
 
 
-def record_schema_migrations(db, repo_dir, scripts, build_id):
+def record_schema_migrations(
+    db,
+    repo_dir,
+    scripts,
+    build_id
+):
     cursor = db.connection.cursor()
 
     migration_number = 1
 
     for script_entry in scripts:
 
-        # DeploymentEngine.load_manifest() returns tuples.
-        # The first element is the relative SQL file path.
-        if isinstance(script_entry, (tuple, list)):
-            relative_script = script_entry[0]
+        if isinstance(
+            script_entry,
+            (tuple, list)
+        ):
+            relative_script = (
+                script_entry[0]
+            )
         else:
-            relative_script = script_entry
+            relative_script = (
+                script_entry
+            )
 
-        # Normalize Path/string values to a string.
-        relative_script = str(relative_script)
+        relative_script = str(
+            relative_script
+        )
 
-        # Do not treat database creation or validation
-        # scripts as schema migrations.
+        # Database creation and validation
+        # are not schema migrations.
         if (
             relative_script
             == "database/00_create_database.sql"
@@ -179,8 +190,10 @@ def record_schema_migrations(db, repo_dir, scripts, build_id):
             / relative_script
         )
 
-        checksum = calculate_file_checksum(
-            script_path
+        checksum = (
+            calculate_file_checksum(
+                script_path
+            )
         )
 
         version_number = (
@@ -188,8 +201,65 @@ def record_schema_migrations(db, repo_dir, scripts, build_id):
         )
 
         migration_name = (
-            Path(relative_script).stem
+            Path(
+                relative_script
+            ).stem
         )
+
+        # --------------------------------------------
+        # Check whether migration already exists
+        # --------------------------------------------
+
+        cursor.execute(
+            """
+            SELECT
+                VersionNumber,
+                ScriptChecksum
+            FROM SchemaMigration
+            WHERE ScriptName = %s
+            """,
+            (
+                relative_script,
+            )
+        )
+
+        existing = cursor.fetchone()
+
+        if existing is not None:
+
+            existing_version = (
+                existing[0]
+            )
+
+            existing_checksum = (
+                existing[1]
+            )
+
+            # Existing migration must remain unchanged.
+            if (
+                existing_checksum
+                != checksum
+            ):
+                cursor.close()
+
+                raise RuntimeError(
+                    "Previously applied migration "
+                    "has been modified | "
+                    f"script={relative_script} | "
+                    f"recorded_checksum="
+                    f"{existing_checksum} | "
+                    f"current_checksum="
+                    f"{checksum}"
+                )
+
+            # Already applied and unchanged.
+            # No new SchemaMigration row needed.
+            migration_number += 1
+            continue
+
+        # --------------------------------------------
+        # New migration
+        # --------------------------------------------
 
         cursor.execute(
             """
@@ -293,6 +363,14 @@ def main():
             == "YES"
         )
 
+        allow_upgrade = (
+            os.getenv(
+                "ALLOW_DATABASE_UPGRADE",
+                "NO"
+            ).upper()
+            == "YES"
+        )
+
         # ----------------------------------------------------
         # Test MySQL connection
         # ----------------------------------------------------
@@ -352,30 +430,45 @@ def main():
         )
 
         # ----------------------------------------------------
-        # Existing DB protection
+        # Existing DB protection / upgrade mode
         # ----------------------------------------------------
 
-        if db.database_exists(
+        database_already_exists = db.database_exists(
             args.target_database
-        ):
-            if not allow_recreate:
+        )
+
+        if database_already_exists:
+
+            if allow_recreate:
+                logger.info(
+                    "Existing database found. "
+                    "Recreation explicitly authorized."
+                )
+
+                db.drop_database(
+                    args.target_database
+                )
+
+                database_already_exists = False
+
+            elif allow_upgrade:
+                logger.info(
+                    "Existing database found. "
+                    "Upgrade mode explicitly authorized. "
+                    "Database will be preserved."
+                )
+
+            else:
                 raise RuntimeError(
                     f"Database "
                     f"'{args.target_database}' "
                     "already exists. "
-                    "Set "
+                    "Set ALLOW_DATABASE_UPGRADE=YES "
+                    "to apply migrations without "
+                    "recreating the database, or set "
                     "ALLOW_DATABASE_RECREATE=YES "
-                    "only for intentional rebuilds."
+                    "for an intentional fresh rebuild."
                 )
-
-            logger.info(
-                "Existing database found. "
-                "Recreation explicitly authorized."
-            )
-
-            db.drop_database(
-                args.target_database
-            )
 
 
         # ----------------------------------------------------
@@ -383,7 +476,8 @@ def main():
         # ----------------------------------------------------
 
         deployment.deploy_all(
-            repo_dir
+            repo_dir,
+            existing_database=database_already_exists
         )
 
         # ----------------------------------------------------

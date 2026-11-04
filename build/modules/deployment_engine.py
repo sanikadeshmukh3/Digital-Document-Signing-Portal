@@ -282,7 +282,7 @@ class DeploymentEngine:
 
 
 
-    def deploy_all(self, repo_dir):
+    def deploy_all(self, repo_dir, existing_database: bool = False):
         scripts = self.load_manifest(repo_dir)
 
         for relative_path, script_path in scripts:
@@ -298,11 +298,18 @@ class DeploymentEngine:
             # ------------------------------------------------
 
             if (relative_path == "database/00_create_database.sql"):
-                self.deploy_script(
-                    relative_path,
-                    script_path,
-                    use_database=False
-                )
+                if existing_database:
+                    self.logger.info(
+                        "Target database already exists; "
+                        "skipping database creation | "
+                        f"script={relative_path}"
+                    )
+                else:
+                    self.deploy_script(
+                        relative_path,
+                        script_path,
+                        use_database=False
+                    )
 
                 continue
 
