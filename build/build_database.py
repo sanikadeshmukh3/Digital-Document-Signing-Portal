@@ -151,14 +151,26 @@ def record_schema_migrations(db, repo_dir, scripts, build_id):
 
     migration_number = 1
 
-    for relative_script in scripts:
+    for script_entry in scripts:
 
-        # Validation scripts execute as part of the build,
-        # but they are not schema migrations.
+        # DeploymentEngine.load_manifest() returns tuples.
+        # The first element is the relative SQL file path.
+        if isinstance(script_entry, (tuple, list)):
+            relative_script = script_entry[0]
+        else:
+            relative_script = script_entry
 
+        # Normalize Path/string values to a string.
+        relative_script = str(relative_script)
+
+        # Do not treat database creation or validation
+        # scripts as schema migrations.
         if (
-            relative_script == "database/00_create_database.sql"
-            or relative_script.startswith("database/05_validation/")
+            relative_script
+            == "database/00_create_database.sql"
+            or relative_script.startswith(
+                "database/05_validation/"
+            )
         ):
             continue
 
