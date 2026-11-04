@@ -1,7 +1,9 @@
 from pathlib import Path
+import hashlib
 
 
 class DeploymentEngine:
+
     def __init__(
         self,
         database_manager,
@@ -11,6 +13,121 @@ class DeploymentEngine:
         self.db = database_manager
         self.target_database = target_database
         self.logger = logger
+
+    def calculate_checksum(self, script_path: Path):
+        sha256 = hashlib.sha256()
+
+        with open(script_path, "rb") as file:
+            while True:
+                chunk = file.read(8192)
+
+                if not chunk:
+                    break
+
+                sha256.update(chunk)
+
+        return sha256.hexdigest()
+
+
+    def schema_migration_table_exists(self):
+        self.db.connect(
+            self.target_database
+        )
+
+        cursor = self.db.connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT COUNT(*)
+            FROM information_schema.tables
+            WHERE table_schema = %s
+            AND table_name = 'SchemaMigration'
+            AND table_type = 'BASE TABLE'
+            """,
+            (self.target_database,)
+        )
+
+        exists = (
+            cursor.fetchone()[0] == 1
+        )
+
+        cursor.close()
+        self.db.close()
+
+        return exists
+
+
+    def get_applied_migration(self, script_name: str):
+        self.db.connect(
+            self.target_database
+        )
+
+        cursor = self.db.connection.cursor()
+
+        cursor.execute(
+            """
+            SELECT
+                VersionNumber,
+                ScriptChecksum
+            FROM SchemaMigration
+            WHERE ScriptName = %s
+            """,
+            (script_name,)
+        )
+
+        row = cursor.fetchone()
+
+        cursor.close()
+        self.db.close()
+
+        return row
+
+
+    def should_execute_migration(self, relative_path: str, script_path: Path):
+        current_checksum = (
+            self.calculate_checksum(
+                script_path
+            )
+        )
+
+        applied = (
+            self.get_applied_migration(
+                relative_path
+            )
+        )
+
+        # Script has never been recorded.
+        if applied is None:
+            return True
+
+        version_number = applied[0]
+        recorded_checksum = applied[1]
+
+        # Script already ran and has not changed.
+        if (
+            recorded_checksum
+            == current_checksum
+        ):
+            self.logger.info(
+                "Skipping previously applied "
+                "migration | "
+                f"version={version_number} | "
+                f"script={relative_path}"
+            )
+
+            return False
+
+        # Same migration name, different contents.
+        raise RuntimeError(
+            "Previously applied migration "
+            "has been modified | "
+            f"version={version_number} | "
+            f"script={relative_path} | "
+            f"recorded_checksum="
+            f"{recorded_checksum} | "
+            f"current_checksum="
+            f"{current_checksum}"
+        )
 
     def load_manifest(self, repo_dir: Path):
         manifest_path = (
@@ -175,8 +292,82 @@ class DeploymentEngine:
                 != "database/00_create_database.sql"
             )
 
+            # ------------------------------------------------
+            # Database creation is deployment/bootstrap logic,
+            # not a tracked schema migration.
+            # ------------------------------------------------
+
+            if (relative_path == "database/00_create_database.sql"):
+                self.deploy_script(
+                    relative_path,
+                    script_path,
+                    use_database=False
+                )
+
+                continue
+
+            # ------------------------------------------------
+            # Bootstrap migration tables.
+            #
+            # On a fresh database SchemaMigration does not
+            # exist yet, so 005_versioning_tables.sql must run.
+            #
+            # On an existing versioned database, the table
+            # already exists, so the bootstrap script should
+            # not be executed again.
+            # ------------------------------------------------
+
+            if relative_path.endswith("005_versioning_tables.sql"):
+                if (not self.schema_migration_table_exists()):
+                    self.deploy_script(
+                        relative_path,
+                        script_path,
+                        use_database=True
+                    )
+                else:
+                    self.logger.info(
+                        "Versioning tables already "
+                        "exist; skipping bootstrap | "
+                        f"script={relative_path}"
+                    )
+
+                continue
+
+            # ------------------------------------------------
+            # Validation scripts should always run.
+            #
+            # They validate the final database state and are
+            # not schema migrations.
+            # ------------------------------------------------
+
+            if relative_path.startswith("database/05_validation/"):
+                self.deploy_script(
+                    relative_path,
+                    script_path,
+                    use_database=True
+                )
+
+                continue
+
+            # ------------------------------------------------
+            # Normal tracked schema/deployment scripts.
+            # ------------------------------------------------
+
+            if (self.schema_migration_table_exists()):
+                should_execute = (
+                    self.should_execute_migration(
+                        relative_path,
+                        script_path
+                    )
+                )
+
+                if not should_execute:
+                    continue
+
+
+
             self.deploy_script(
                 relative_path,
                 script_path,
-                use_database=use_database
+                use_database=True
             )
