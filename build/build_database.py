@@ -399,6 +399,7 @@ def main():
 
         record_schema_migrations(
             db=db,
+            repo_dir=repo_dir,
             scripts=scripts,
             build_id=build_id
         )
