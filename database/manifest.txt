@@ -23,6 +23,7 @@
 database/00_create_database.sql
 
 # --- 1. Schema ---
+database/01_schema/005_versioning_tables.sql
 database/01_schema/010_reference_tables.sql
 database/01_schema/020_core_tables.sql
 database/01_schema/030_relationship_tables.sql

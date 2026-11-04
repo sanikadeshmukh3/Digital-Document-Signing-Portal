@@ -29,6 +29,8 @@ SELECT '--- Base tables ---' AS ObjectValidation;
 SELECT t.expected AS ObjectName,
        CASE WHEN ist.TABLE_NAME IS NULL THEN 'MISSING' ELSE 'PRESENT' END AS Status
 FROM (
+    SELECT 'DatabaseBuild' AS expected UNION ALL
+    SELECT 'SchemaMigration' AS expected UNION ALL
     SELECT 'ReferenceData' AS expected UNION ALL SELECT 'User' UNION ALL
     SELECT 'Role' UNION ALL SELECT 'UserRole' UNION ALL
     SELECT 'Document' UNION ALL SELECT 'DocumentVersion' UNION ALL
@@ -171,12 +173,12 @@ BEGIN
     WHERE TABLE_SCHEMA = DATABASE()
       AND TABLE_TYPE = 'BASE TABLE'
       AND TABLE_NAME IN (
-          'ReferenceData','User','Role','UserRole','Document',
+          'DatabaseBuild','SchemaMigration', 'ReferenceData','User','Role','UserRole','Document',
           'DocumentVersion','Workflow','WorkflowStep',
           'WorkflowParticipant','ApprovalDecision','Signature','AuditLog');
-    IF v_count <> 12 THEN
+    IF v_count <> 14 THEN
         SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Object validation failed: not all 12 base tables are present.';
+            SET MESSAGE_TEXT = 'Object validation failed: not all 14 base tables are present.';
     END IF;
 
     -- ----- Composite PK on DocumentVersion(DocumentID, VersionNumber) -----
