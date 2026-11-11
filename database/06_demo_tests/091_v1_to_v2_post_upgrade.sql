@@ -164,7 +164,7 @@ JOIN DocumentVersion dv
     ON dv.DocumentID = d.DocumentID
 JOIN ReferenceData rd
     ON rd.ReferenceDataID =
-       dv.VersionStatusID
+       dv.CurrentVersionStatusID
 WHERE d.Title =
     'Master Services Agreement'
 ORDER BY dv.VersionNumber;
