@@ -177,7 +177,11 @@ ORDER BY dv.VersionNumber;
 SELECT
     d.Title,
     dv.VersionNumber,
-    u.DisplayName AS Approver,
+    CONCAT(
+    u.FirstName,
+    ' ',
+    u.LastName
+    ) AS Approver,
     decision.Code AS Decision
 FROM ApprovalDecision ad
 JOIN WorkflowParticipant wp
@@ -199,7 +203,7 @@ JOIN Document d
        dv.DocumentID
 JOIN ReferenceData decision
     ON decision.ReferenceDataID =
-       ad.DecisionID
+       ad.DecisionVersionID
 WHERE d.Title =
     'Master Services Agreement'
 ORDER BY dv.VersionNumber;
@@ -212,7 +216,11 @@ ORDER BY dv.VersionNumber;
 SELECT
     d.Title,
     dv.VersionNumber,
-    u.DisplayName AS Signer,
+    CONCAT(
+    u.FirstName,
+    ' ',
+    u.LastName
+    ) AS Signer,
     status.Code AS SignatureStatus,
     s.SignatureMethod
 FROM Signature s
