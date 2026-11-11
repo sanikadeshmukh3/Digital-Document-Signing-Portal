@@ -17,8 +17,6 @@ from modules.github_manager import GitHubManager
 from modules.database_manager import DatabaseManager
 from modules.deployment_engine import DeploymentEngine
 
-SCHEMA_VERSION = "1.2.0"
-
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -401,6 +399,29 @@ def main():
             github.clone_release(
                 repo_dir
             )
+            
+        )
+
+        schema_version_file = (
+            repo_dir
+            / "database"
+            / "schema_version.txt"
+        )
+
+        if not schema_version_file.exists():
+            raise RuntimeError(
+                "Missing database/schema_version.txt"
+            )
+
+        schema_version = (
+            schema_version_file
+            .read_text(encoding="utf-8")
+            .strip()
+        )
+
+        logger.info(
+            f"Resolved schema version="
+            f"{schema_version}"
         )
 
         # ----------------------------------------------------
@@ -482,7 +503,7 @@ def main():
         build_id = record_database_build(
             db=db,
             target_database=args.target_database,
-            schema_version=SCHEMA_VERSION,
+            schema_version=schema_version,
             release_tag=args.version_tag,
             commit_sha=commit_sha,
             mysql_version=mysql_version
@@ -491,7 +512,7 @@ def main():
         logger.info(
             "Database build version recorded | "
             f"build_id={build_id} | "
-            f"schema_version={SCHEMA_VERSION}"
+            f"schema_version={schema_version}"
         )
 
         #----------------------------------------------------
@@ -572,7 +593,7 @@ def main():
         logger.info(
             "BUILD SUCCEEDED | "
             f"build_id={build_id} | "
-            f"schema_version={SCHEMA_VERSION} | "
+            f"schema_version={schema_version} | "
             f"tag={args.version_tag} | "
             f"commit={commit_sha} | "
             f"database={args.target_database}"
