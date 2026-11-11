@@ -43,6 +43,10 @@ database/03_security/020_grants.sql
 database/04_seed/010_reference_data.sql
 database/04_seed/020_sample_data.sql
 
+# Schema v1.2.0 upgrade migrations
+database/01_schema/050_database_object_version.sql
+database/02_programability/050_object_version_stamps.sql
+
 # --- 5. Validation ---
 database/05_validation/010_object_validation.sql
 database/05_validation/020_data_validation.sql

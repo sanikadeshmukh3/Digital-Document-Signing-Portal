@@ -17,7 +17,7 @@ from modules.github_manager import GitHubManager
 from modules.database_manager import DatabaseManager
 from modules.deployment_engine import DeploymentEngine
 
-SCHEMA_VERSION = "1.1.0"
+SCHEMA_VERSION = "1.2.0"
 
 
 def parse_arguments():
@@ -40,7 +40,7 @@ def parse_arguments():
 
     parser.add_argument(
         "version_tag",
-        help="Exact Git tag such as v1.0.0"
+        help="Exact Git tag such as v1.2.0"
     )
 
     parser.add_argument(
@@ -146,12 +146,7 @@ def calculate_file_checksum(file_path):
     return sha256.hexdigest()
 
 
-def record_schema_migrations(
-    db,
-    repo_dir,
-    scripts,
-    build_id
-):
+def record_schema_migrations(db, repo_dir, scripts,build_id):
     cursor = db.connection.cursor()
 
     migration_number = 1

@@ -36,7 +36,7 @@ FROM (
     SELECT 'Document' UNION ALL SELECT 'DocumentVersion' UNION ALL
     SELECT 'Workflow' UNION ALL SELECT 'WorkflowStep' UNION ALL
     SELECT 'WorkflowParticipant' UNION ALL SELECT 'ApprovalDecision' UNION ALL
-    SELECT 'Signature' UNION ALL SELECT 'AuditLog'
+    SELECT 'Signature' UNION ALL SELECT 'AuditLog' UNION ALL SELECT 'DatabaseObjectVersion'
 ) t
 LEFT JOIN information_schema.TABLES ist
     ON ist.TABLE_SCHEMA = DATABASE()
@@ -173,12 +173,12 @@ BEGIN
     WHERE TABLE_SCHEMA = DATABASE()
       AND TABLE_TYPE = 'BASE TABLE'
       AND TABLE_NAME IN (
-          'DatabaseBuild','SchemaMigration', 'ReferenceData','User','Role','UserRole','Document',
+          'DatabaseBuild','SchemaMigration', 'DatabaseObjectVersion','ReferenceData','User','Role','UserRole','Document',
           'DocumentVersion','Workflow','WorkflowStep',
           'WorkflowParticipant','ApprovalDecision','Signature','AuditLog');
-    IF v_count <> 14 THEN
+    IF v_count <> 15 THEN
         SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Object validation failed: not all 14 base tables are present.';
+            SET MESSAGE_TEXT = 'Object validation failed: not all 15 base tables are present.';
     END IF;
 
     -- ----- Composite PK on DocumentVersion(DocumentID, VersionNumber) -----
@@ -310,6 +310,16 @@ BEGIN
     IF v_count <> 9 THEN
         SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = 'Object validation failed: not all 9 required triggers are present.';
+    END IF;
+
+    -- ----- 27 object version stamps -----
+    SELECT COUNT(*) INTO v_count
+    FROM DatabaseObjectVersion;
+
+    IF v_count <> 27 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT =
+                'Object validation failed: expected 27 database object version stamps.';
     END IF;
 
     -- ----- 4 database roles (best-effort; non-fatal if unreadable) -----
