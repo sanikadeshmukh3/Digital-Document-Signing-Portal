@@ -203,7 +203,7 @@ JOIN Document d
        dv.DocumentID
 JOIN ReferenceData decision
     ON decision.ReferenceDataID =
-       ad.DecisionVersionID
+       ad.DecisionValueID
 WHERE d.Title =
     'Master Services Agreement'
 ORDER BY dv.VersionNumber;
