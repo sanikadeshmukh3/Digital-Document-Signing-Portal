@@ -18,10 +18,19 @@
 #     datetime checks hold by construction, emails stay unique in
 #     the @scale.example namespace, and versions are inserted
 #     directly as LOCKED (like the real seed) so no trigger fires.
-#   - It is safe to rerun: each run clears its own previously
-#     generated rows (in FK-safe order) and regenerates. The whole
-#     run is one transaction, so it either fully applies or rolls
-#     back. It never changes the schema or relaxes a constraint.
+#   - Generated data is isolated in a reserved namespace.
+#   - Dry runs and uncommitted generation can be safely repeated.
+#   - Once generated Signature or ApprovalDecision rows have been
+#     committed, regeneration requires rebuilding the target database
+#     because those historical action records are intentionally
+#     protected from deletion.
+#   - The entire generation run is one transaction, so a failure
+#     before commit rolls back all generated work.
+#   - The generator is controlled fixture/scale-data construction.
+#     It inserts internally consistent workflow states directly rather
+#     than exercising runtime workflow-transition procedures.
+#     Runtime application transitions remain subject to database
+#     workflow enforcement.
 #
 # Generated rows are recognised by these markers:
 #   - User.Email                    ends with '@scale.example'
