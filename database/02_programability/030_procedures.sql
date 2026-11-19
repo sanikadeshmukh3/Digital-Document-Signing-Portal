@@ -1855,24 +1855,6 @@ BEGIN
 
     WHERE WorkflowID = p_workflow_id;
 
-    -- ------------------------------------------------------------
-    -- CANCEL_WORKFLOW -> System Administrator
-    -- ------------------------------------------------------------
-
-    INSERT INTO WorkflowTransitionRole (
-        WorkflowStatusTransitionID,
-        RoleID,
-        AllowedFlag
-    )
-    SELECT
-        wt.WorkflowStatusTransitionID,
-        r.RoleID,
-        TRUE
-    FROM WorkflowStatusTransition wt
-    JOIN Role r
-        ON r.RoleName = 'System Administrator'
-    WHERE wt.TransitionCode = 'CANCEL_WORKFLOW';
-
 
     -- --------------------------------------------------------
     -- Cancel unfinished steps.
@@ -1941,8 +1923,7 @@ BEGIN
         'CANCELLED',
         p_cancellation_reason
     );
-
-
+    
 
 
     COMMIT;
@@ -2334,24 +2315,6 @@ BEGIN
                 'Required expiration status reference data is missing.';
     END IF;
 
-
-    -- ------------------------------------------------------------
-    -- EXPIRE_WORKFLOW -> System Administrator
-    -- ------------------------------------------------------------
-
-    INSERT INTO WorkflowTransitionRole (
-        WorkflowStatusTransitionID,
-        RoleID,
-        AllowedFlag
-    )
-    SELECT
-        wt.WorkflowStatusTransitionID,
-        r.RoleID,
-        TRUE
-    FROM WorkflowStatusTransition wt
-    JOIN Role r
-        ON r.RoleName = 'System Administrator'
-    WHERE wt.TransitionCode = 'EXPIRE_WORKFLOW';
 
     -- --------------------------------------------------------
     -- Process expired ACTIVE workflows.

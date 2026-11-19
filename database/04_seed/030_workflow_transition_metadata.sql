@@ -182,5 +182,40 @@ JOIN Role r
     ON r.RoleName = 'Document Owner'
 WHERE wt.TransitionCode = 'CANCEL_WORKFLOW';
 
+-- ------------------------------------------------------------
+-- CANCEL_WORKFLOW -> System Administrator
+-- ------------------------------------------------------------
+
+INSERT INTO WorkflowTransitionRole (
+    WorkflowStatusTransitionID,
+    RoleID,
+    AllowedFlag
+)
+SELECT
+    wt.WorkflowStatusTransitionID,
+    r.RoleID,
+    TRUE
+FROM WorkflowStatusTransition wt
+JOIN Role r
+    ON r.RoleName = 'System Administrator'
+WHERE wt.TransitionCode = 'CANCEL_WORKFLOW';
+
+-- ------------------------------------------------------------
+-- EXPIRE_WORKFLOW -> System Administrator
+-- ------------------------------------------------------------
+
+INSERT INTO WorkflowTransitionRole (
+    WorkflowStatusTransitionID,
+    RoleID,
+    AllowedFlag
+)
+SELECT
+    wt.WorkflowStatusTransitionID,
+    r.RoleID,
+    TRUE
+FROM WorkflowStatusTransition wt
+JOIN Role r
+    ON r.RoleName = 'System Administrator'
+WHERE wt.TransitionCode = 'EXPIRE_WORKFLOW';
 
 COMMIT;
