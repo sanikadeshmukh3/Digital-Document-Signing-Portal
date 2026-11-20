@@ -302,25 +302,38 @@ BEGIN
     IF v_TransitionCode = 'CANCEL_WORKFLOW' THEN
 
         IF p_ChangeReason IS NULL
-           OR TRIM(p_ChangeReason) = '' THEN
+        OR TRIM(p_ChangeReason) = '' THEN
+
             SIGNAL SQLSTATE '45000'
                 SET MESSAGE_TEXT =
                     'Workflow transition rejected: cancellation reason is required.';
         END IF;
-
-        -- A Document Owner may only cancel a workflow belonging
-        -- to that owner's own Document.
 
         SELECT d.OwnerUserID
         INTO v_OwnerUserID
         FROM Document d
         WHERE d.DocumentID = v_DocumentID;
 
-        IF p_ActorUserID IS NULL
-           OR v_OwnerUserID <> p_ActorUserID THEN
+        IF p_ActorUserID IS NULL THEN
             SIGNAL SQLSTATE '45000'
                 SET MESSAGE_TEXT =
-                    'Workflow transition rejected: only the document owner may cancel this workflow.';
+                    'Workflow transition rejected: cancellation requires an authorized user.';
+        END IF;
+
+        IF p_ActorUserID <> v_OwnerUserID
+        AND NOT EXISTS (
+                SELECT 1
+                FROM UserRole ur
+                JOIN Role r
+                    ON r.RoleID = ur.RoleID
+                WHERE ur.UserID = p_ActorUserID
+                AND r.RoleName = 'System Administrator'
+                AND r.ActiveStatus = TRUE
+        ) THEN
+
+            SIGNAL SQLSTATE '45000'
+                SET MESSAGE_TEXT =
+                    'Workflow transition rejected: actor may not cancel this workflow.';
         END IF;
 
     END IF;
@@ -344,13 +357,19 @@ BEGIN
     SET
         WorkflowStatusID = v_ToStatusID,
 
+        StartDateTime =
+            CASE
+                WHEN p_ToStatusCode = 'ACTIVE'
+                    AND StartDateTime IS NULL
+                    THEN CURRENT_TIMESTAMP
+                ELSE StartDateTime
+            END,
         CompletionDateTime =
             CASE
-                WHEN p_ToStatusCode = 'COMPLETED'
+                WHEN p_ToStatusCode IN ('COMPLETED', 'EXPIRED')
                     THEN CURRENT_TIMESTAMP
                 ELSE CompletionDateTime
             END,
-
         CancellationDateTime =
             CASE
                 WHEN p_ToStatusCode = 'CANCELLED'
@@ -384,10 +403,14 @@ BEGIN
     )
     VALUES (
         p_ActorUserID,
-        CONCAT(
-            'WORKFLOW_',
-            p_ToStatusCode
-        ),
+        CASE p_ToStatusCode
+            WHEN 'ACTIVE'    THEN 'WORKFLOW_INITIATED'
+            WHEN 'COMPLETED' THEN 'WORKFLOW_COMPLETED'
+            WHEN 'REJECTED'  THEN 'WORKFLOW_REJECTED'
+            WHEN 'CANCELLED' THEN 'WORKFLOW_CANCELLED'
+            WHEN 'EXPIRED'   THEN 'WORKFLOW_EXPIRED'
+            ELSE 'WORKFLOW_STATUS_CHANGED'
+        END,
         'Workflow',
         p_WorkflowID,
         COALESCE(
