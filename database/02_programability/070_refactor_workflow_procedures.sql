@@ -69,14 +69,6 @@ BEGIN
 
 
     SELECT ReferenceDataID
-    INTO v_workflow_active_id
-    FROM ReferenceData
-    WHERE DomainName = 'WORKFLOW_STATUS'
-      AND Code = 'ACTIVE'
-      AND IsActive = TRUE;
-
-
-    SELECT ReferenceDataID
     INTO v_workflow_completed_id
     FROM ReferenceData
     WHERE DomainName = 'WORKFLOW_STATUS'
@@ -346,14 +338,6 @@ BEGIN
     FROM ReferenceData
     WHERE DomainName = 'WORKFLOW_STATUS'
       AND Code = 'DRAFT'
-      AND IsActive = TRUE;
-
-
-    SELECT ReferenceDataID
-    INTO v_workflow_active_id
-    FROM ReferenceData
-    WHERE DomainName = 'WORKFLOW_STATUS'
-      AND Code = 'ACTIVE'
       AND IsActive = TRUE;
 
 
