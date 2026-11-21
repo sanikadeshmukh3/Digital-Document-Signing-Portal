@@ -54,6 +54,10 @@ database/02_programability/060_workflow_transition_procedure.sql
 database/02_programability/070_refactor_workflow_procedures.sql
 database/02_programability/080_workflow_transition_guard.sql
 
+database/01_schema/070_workflow_ui_metadata.sql
+database/02_programability/090_workflow_metadata_view.sql
+database/02_programability/100_get_allowed_workflow_transitions.sql
+
 # --- 5. Validation ---
 database/05_validation/010_object_validation.sql
 database/05_validation/020_data_validation.sql
