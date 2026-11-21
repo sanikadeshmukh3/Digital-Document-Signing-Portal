@@ -68,14 +68,6 @@ BEGIN
       AND IsActive = TRUE;
 
 
-    SELECT ReferenceDataID
-    INTO v_workflow_completed_id
-    FROM ReferenceData
-    WHERE DomainName = 'WORKFLOW_STATUS'
-      AND Code = 'COMPLETED'
-      AND IsActive = TRUE;
-
-
     -- --------------------------------------------------------
     -- Complete active steps whose required assignments
     -- have all completed.
@@ -1013,14 +1005,6 @@ BEGIN
           AND IsActive = TRUE;
 
 
-        SELECT ReferenceDataID
-        INTO v_workflow_rejected_id
-        FROM ReferenceData
-        WHERE DomainName = 'WORKFLOW_STATUS'
-          AND Code = 'REJECTED'
-          AND IsActive = TRUE;
-
-
         UPDATE WorkflowParticipant
         SET
             AssignmentStatusID =
@@ -1219,14 +1203,6 @@ BEGIN
 
 
     SELECT ReferenceDataID
-    INTO v_workflow_cancelled_id
-    FROM ReferenceData
-    WHERE DomainName = 'WORKFLOW_STATUS'
-      AND Code = 'CANCELLED'
-      AND IsActive = TRUE;
-
-
-    SELECT ReferenceDataID
     INTO v_step_cancelled_id
     FROM ReferenceData
     WHERE DomainName = 'STEP_STATUS'
@@ -1321,15 +1297,6 @@ BEGIN
     LIMIT 1;
 
 
-    SELECT ReferenceDataID
-    INTO v_expired_workflow_status_id
-    FROM ReferenceData
-    WHERE DomainName = 'WORKFLOW_STATUS'
-      AND Code = 'EXPIRED'
-      AND IsActive = TRUE
-    LIMIT 1;
-
-
     -- --------------------------------------------------------
     -- Resolve step statuses.
     -- --------------------------------------------------------
@@ -1397,7 +1364,6 @@ BEGIN
     -- --------------------------------------------------------
 
     IF v_active_workflow_status_id IS NULL
-       OR v_expired_workflow_status_id IS NULL
        OR v_pending_step_status_id IS NULL
        OR v_active_step_status_id IS NULL
        OR v_cancelled_step_status_id IS NULL
