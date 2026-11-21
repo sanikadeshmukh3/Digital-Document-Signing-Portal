@@ -11,7 +11,7 @@ DELIMITER $$
 
 DROP PROCEDURE IF EXISTS sp_advance_workflow $$
 
-CREATE PROCEDURE sp_advance_workflow (...)
+CREATE PROCEDURE sp_advance_workflow (IN p_workflow_id BIGINT UNSIGNED)
 BEGIN
     DECLARE v_step_active_id BIGINT UNSIGNED;
     DECLARE v_step_pending_id BIGINT UNSIGNED;
@@ -192,7 +192,12 @@ END $$
 
 DROP PROCEDURE IF EXISTS sp_initiate_workflow $$
 
-CREATE PROCEDURE sp_initiate_workflow (...)
+CREATE PROCEDURE sp_initiate_workflow (IN p_owner_user_id BIGINT UNSIGNED,
+    IN p_document_id BIGINT UNSIGNED,
+    IN p_document_version_id BIGINT UNSIGNED,
+    IN p_workflow_purpose_code VARCHAR(50),
+    IN p_expiration_datetime DATETIME,
+    IN p_steps JSON)
 BEGIN
     -- copied from 030
     -- DRAFT -> ACTIVE UPDATE replaced with CALL
@@ -757,7 +762,11 @@ END $$
 
 DROP PROCEDURE IF EXISTS sp_record_approval_decision $$
 
-CREATE PROCEDURE sp_record_approval_decision (...)
+CREATE PROCEDURE sp_record_approval_decision (IN p_workflow_participant_id BIGINT UNSIGNED,
+    IN p_current_user_id BIGINT UNSIGNED,
+    IN p_decision_code VARCHAR(50),
+    IN p_comments TEXT,
+    IN p_rejection_reason VARCHAR(500))
 BEGIN
     -- copied from 030
     -- rejection status UPDATE replaced with CALL
@@ -1118,7 +1127,9 @@ END $$
 
 DROP PROCEDURE IF EXISTS sp_cancel_workflow $$
 
-CREATE PROCEDURE sp_cancel_workflow (...)
+CREATE PROCEDURE sp_cancel_workflow (IN p_workflow_id BIGINT UNSIGNED,
+    IN p_current_user_id BIGINT UNSIGNED,
+    IN p_cancellation_reason VARCHAR(500))
 BEGIN
     -- copied from 030
     -- status UPDATE replaced with CALL
@@ -1268,7 +1279,7 @@ END $$
 
 DROP PROCEDURE IF EXISTS sp_expire_workflows $$
 
-CREATE PROCEDURE sp_expire_workflows (...)
+CREATE PROCEDURE sp_expire_workflows (IN p_actor_user_id BIGINT UNSIGNED)
 BEGIN
     -- copied from 030
     -- terminal UPDATE replaced with CALL
