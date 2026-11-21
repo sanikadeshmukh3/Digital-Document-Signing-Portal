@@ -1923,7 +1923,6 @@ BEGIN
         'CANCELLED',
         p_cancellation_reason
     );
-    
 
 
     COMMIT;

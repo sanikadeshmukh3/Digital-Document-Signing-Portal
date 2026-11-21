@@ -23,10 +23,9 @@
 --     errors on purpose, since the build always targets a fresh DB.
 --   - Codes are kept consistent with the rest of the database:
 --     WORKFLOW_STATUS uses COMPLETED (not COMPLETE); SIGNATURE_STATUS
---     currently has only SIGNED; PARTICIPANT_STATUS includes DECLINED;
---     and DOCUMENT_VERSION_STATUS includes DRAFT, CURRENT, and LOCKED
---     because workflow initiation and DocumentVersion lifecycle rules
---     depend on those values.
+--     has only SIGNED; PARTICIPANT_STATUS has no DECLINED; and
+--     DOCUMENT_VERSION_STATUS (CURRENT/LOCKED) is included because
+--     workflow initiation and the DocumentVersion triggers rely on it.
 -- ============================================================
 
 START TRANSACTION;
