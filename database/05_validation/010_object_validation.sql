@@ -54,7 +54,9 @@ FROM (
     SELECT 'vw_WorkflowDetail' UNION ALL
     SELECT 'vw_DocumentVersionHistory' UNION ALL
     SELECT 'vw_DocumentHistory' UNION ALL
-    SELECT 'vw_AuditHistory'
+    SELECT 'vw_AuditHistory' UNION ALL
+    SELECT 'vw_IndicatorValue' UNION ALL
+    SELECT 'vw_CodedValueIntegrity'
 ) v
 LEFT JOIN information_schema.VIEWS isv
     ON isv.TABLE_SCHEMA = DATABASE()
@@ -77,7 +79,13 @@ FROM (
     SELECT 'sp_record_signature', 'PROCEDURE' UNION ALL
     SELECT 'sp_cancel_workflow', 'PROCEDURE' UNION ALL
     SELECT 'sp_expire_workflows', 'PROCEDURE' UNION ALL
-    SELECT 'sp_create_document_version', 'PROCEDURE'
+    SELECT 'sp_create_document_version', 'PROCEDURE' UNION ALL
+    SELECT 'fn_is_indicator_member', 'FUNCTION' UNION ALL
+    SELECT 'fn_is_indicator_id_member', 'FUNCTION' UNION ALL
+    SELECT 'fn_decode_indicator', 'FUNCTION' UNION ALL
+    SELECT 'sp_assert_indicator_id', 'PROCEDURE' UNION ALL
+    SELECT 'sp_assert_indicator_code', 'PROCEDURE' UNION ALL
+    SELECT 'sp_get_indicator_values', 'PROCEDURE'
 ) r
 LEFT JOIN information_schema.ROUTINES isr
     ON isr.ROUTINE_SCHEMA = DATABASE()
@@ -98,7 +106,28 @@ FROM (
     SELECT 'trg_Signature_PreventDelete' UNION ALL
     SELECT 'trg_AuditLog_PreventUpdate' UNION ALL
     SELECT 'trg_AuditLog_PreventDelete' UNION ALL
-    SELECT 'trg_Workflow_TerminalCascade'
+    SELECT 'trg_Workflow_TerminalCascade' UNION ALL
+    SELECT 'trg_User_IndicatorCheckInsert' UNION ALL
+    SELECT 'trg_User_IndicatorCheckUpdate' UNION ALL
+    SELECT 'trg_Document_IndicatorCheckInsert' UNION ALL
+    SELECT 'trg_Document_IndicatorCheckUpdate' UNION ALL
+    SELECT 'trg_DocumentVersion_IndicatorCheckInsert' UNION ALL
+    SELECT 'trg_DocumentVersion_IndicatorCheckUpdate' UNION ALL
+    SELECT 'trg_Workflow_IndicatorCheckInsert' UNION ALL
+    SELECT 'trg_Workflow_IndicatorCheckUpdate' UNION ALL
+    SELECT 'trg_WorkflowStep_IndicatorCheckInsert' UNION ALL
+    SELECT 'trg_WorkflowStep_IndicatorCheckUpdate' UNION ALL
+    SELECT 'trg_WorkflowParticipant_IndicatorCheckInsert' UNION ALL
+    SELECT 'trg_WorkflowParticipant_IndicatorCheckUpdate' UNION ALL
+    SELECT 'trg_ApprovalDecision_IndicatorCheckInsert' UNION ALL
+    SELECT 'trg_Signature_IndicatorCheckInsert' UNION ALL
+    SELECT 'trg_AuditLog_IndicatorCheckInsert' UNION ALL
+    SELECT 'trg_DatabaseBuild_IndicatorCheckInsert' UNION ALL
+    SELECT 'trg_DatabaseBuild_IndicatorCheckUpdate' UNION ALL
+    SELECT 'trg_DatabaseObjectVersion_IndicatorCheckInsert' UNION ALL
+    SELECT 'trg_DatabaseObjectVersion_IndicatorCheckUpdate' UNION ALL
+    SELECT 'trg_WorkflowStatusTransition_IndicatorCheckInsert' UNION ALL
+    SELECT 'trg_WorkflowStatusTransition_IndicatorCheckUpdate'
 ) tr
 LEFT JOIN information_schema.TRIGGERS ist
     ON ist.TRIGGER_SCHEMA = DATABASE()
@@ -260,10 +289,11 @@ BEGIN
     WHERE TABLE_SCHEMA = DATABASE()
       AND TABLE_NAME IN (
           'vw_ParticipantWorklist','vw_OutstandingActions','vw_WorkflowDetail',
-          'vw_DocumentVersionHistory','vw_DocumentHistory','vw_AuditHistory');
-    IF v_count <> 6 THEN
+          'vw_DocumentVersionHistory','vw_DocumentHistory','vw_AuditHistory',
+          'vw_IndicatorValue','vw_CodedValueIntegrity');
+    IF v_count <> 8 THEN
         SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Object validation failed: not all 6 required views are present.';
+            SET MESSAGE_TEXT = 'Object validation failed: not all 8 required views are present.';
     END IF;
 
     -- ----- 4 functions -----
@@ -273,10 +303,11 @@ BEGIN
       AND ROUTINE_TYPE = 'FUNCTION'
       AND ROUTINE_NAME IN (
           'fn_user_has_role','fn_all_predecessors_complete',
-          'fn_step_required_work_complete','fn_workflow_required_work_complete');
-    IF v_count <> 4 THEN
+          'fn_step_required_work_complete','fn_workflow_required_work_complete',
+          'fn_is_indicator_member','fn_is_indicator_id_member','fn_decode_indicator');
+    IF v_count <> 7 THEN
         SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Object validation failed: not all 4 required functions are present.';
+            SET MESSAGE_TEXT = 'Object validation failed: not all 7 required functions are present.';
     END IF;
 
     -- ----- 6 procedures -----
@@ -287,10 +318,11 @@ BEGIN
       AND ROUTINE_NAME IN (
           'sp_advance_workflow','sp_initiate_workflow',
           'sp_complete_review_acknowledgement','sp_record_approval_decision',
-          'sp_record_signature','sp_cancel_workflow', 'sp_expire_workflows', 'sp_create_document_version');
-    IF v_count <> 8 THEN
+          'sp_record_signature','sp_cancel_workflow', 'sp_expire_workflows', 'sp_create_document_version',
+          'sp_assert_indicator_id','sp_assert_indicator_code','sp_get_indicator_values');
+    IF v_count <> 11 THEN
         SIGNAL SQLSTATE '45000'
-            SET MESSAGE_TEXT = 'Object validation failed: not all 8 required procedures are present.';
+            SET MESSAGE_TEXT = 'Object validation failed: not all 11 required procedures are present.';
     END IF;
 
     -- ----- 8 triggers -----
@@ -310,6 +342,78 @@ BEGIN
     IF v_count <> 9 THEN
         SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = 'Object validation failed: not all 9 required triggers are present.';
+    END IF;
+
+    -- ----- 21 indicator-membership triggers (schema 1.4.0) -----
+    -- One BEFORE INSERT per coded table, plus BEFORE UPDATE where
+    -- rows are mutable. Closes the generalized-FK domain gap.
+    SELECT COUNT(*) INTO v_count
+    FROM information_schema.TRIGGERS
+    WHERE TRIGGER_SCHEMA = DATABASE()
+      AND TRIGGER_NAME IN (
+          'trg_User_IndicatorCheckInsert',
+          'trg_User_IndicatorCheckUpdate',
+          'trg_Document_IndicatorCheckInsert',
+          'trg_Document_IndicatorCheckUpdate',
+          'trg_DocumentVersion_IndicatorCheckInsert',
+          'trg_DocumentVersion_IndicatorCheckUpdate',
+          'trg_Workflow_IndicatorCheckInsert',
+          'trg_Workflow_IndicatorCheckUpdate',
+          'trg_WorkflowStep_IndicatorCheckInsert',
+          'trg_WorkflowStep_IndicatorCheckUpdate',
+          'trg_WorkflowParticipant_IndicatorCheckInsert',
+          'trg_WorkflowParticipant_IndicatorCheckUpdate',
+          'trg_ApprovalDecision_IndicatorCheckInsert',
+          'trg_Signature_IndicatorCheckInsert',
+          'trg_AuditLog_IndicatorCheckInsert',
+          'trg_DatabaseBuild_IndicatorCheckInsert',
+          'trg_DatabaseBuild_IndicatorCheckUpdate',
+          'trg_DatabaseObjectVersion_IndicatorCheckInsert',
+          'trg_DatabaseObjectVersion_IndicatorCheckUpdate',
+          'trg_WorkflowStatusTransition_IndicatorCheckInsert',
+          'trg_WorkflowStatusTransition_IndicatorCheckUpdate');
+    IF v_count <> 21 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Object validation failed: not all 21 indicator-membership triggers are present.';
+    END IF;
+
+    -- ----- Indicator Value table shape (schema 1.4.0) -----
+    -- indicator name / value / description / display order.
+    SELECT COUNT(*) INTO v_count
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'ReferenceData'
+      AND COLUMN_NAME IN ('DomainName','Code','DisplayName','DisplayOrder','IsActive');
+    IF v_count <> 5 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Object validation failed: ReferenceData lacks an Indicator Value column (DomainName/Code/DisplayName/DisplayOrder/IsActive).';
+    END IF;
+
+    SELECT COUNT(*) INTO v_count
+    FROM information_schema.TABLE_CONSTRAINTS
+    WHERE CONSTRAINT_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'ReferenceData'
+      AND CONSTRAINT_TYPE = 'UNIQUE'
+      AND CONSTRAINT_NAME = 'uq_ReferenceData_Domain_Code';
+    IF v_count <> 1 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Object validation failed: UNIQUE (DomainName, Code) on ReferenceData is missing.';
+    END IF;
+
+    -- ----- Principle 11: no coded domain hard-coded in a CHECK -----
+    -- A CHECK that compares a column to string literals
+    -- ( col = 'X'  or  col IN ('X','Y') ) is a hard-coded list of
+    -- values. Not-blank checks (TRIM(col) <> '') are allowed.
+    SELECT COUNT(*) INTO v_count
+    FROM information_schema.CHECK_CONSTRAINTS
+    WHERE CONSTRAINT_SCHEMA = DATABASE()
+      AND (
+             CHECK_CLAUSE LIKE '%= _utf8mb4''%'
+          OR CHECK_CLAUSE LIKE '% in (_utf8mb4''%'
+      );
+    IF v_count <> 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Object validation failed: a CHECK constraint hard-codes a list of values; move it to ReferenceData.';
     END IF;
 
     -- ----- 27 object version stamps -----

@@ -228,4 +228,89 @@ WHERE UserID = (
 ORDER BY DueDateTime;
 
 
+-- ============================================================
+-- Test 10 - Generic list-of-values service   (Principle 11)
+-- ============================================================
+-- The one endpoint every combo box uses. Shown for two
+-- different indicators to demonstrate it is generic.
+-- ============================================================
+
+SELECT '=== Test 10: Generic list of values - sp_get_indicator_values ===' AS SmokeTest;
+
+CALL sp_get_indicator_values('WORKFLOW_STATUS');
+
+CALL sp_get_indicator_values('DOCUMENT_CLASSIFICATION');
+
+
+-- ============================================================
+-- Test 11 - Indicator validation and report decoding
+-- ============================================================
+-- Asserts (fail-closed):
+--   - a member value validates, a non-member does not
+--     (ACTIVE is a WORKFLOW_STATUS; LOCKED is not)
+--   - an ID from another indicator does not validate
+--   - a stored code decodes to its description; a code that is
+--     not in the table decodes visibly as INVALID [...]
+--   - the audit report decodes every stored event type
+-- ============================================================
+
+SELECT '=== Test 11: Indicator validation + report decoding ===' AS SmokeTest;
+
+SELECT
+    fn_is_indicator_member('WORKFLOW_STATUS', 'ACTIVE')       AS ActiveIsWorkflowStatus,
+    fn_is_indicator_member('WORKFLOW_STATUS', 'LOCKED')       AS LockedIsWorkflowStatus,
+    fn_decode_indicator('SIGNATURE_METHOD', 'TYPED_NAME')     AS DecodeKnownCode,
+    fn_decode_indicator('SIGNATURE_METHOD', 'CARRIER_PIGEON') AS DecodeUnknownCode;
+
+SELECT
+    AuditLogID, EventType, EventTypeName,
+    AffectedRecordType, AffectedRecordTypeName
+FROM vw_AuditHistory
+ORDER BY AuditLogID
+LIMIT 10;
+
+DELIMITER $$
+DROP PROCEDURE IF EXISTS sp__smoke_assert_indicators $$
+CREATE PROCEDURE sp__smoke_assert_indicators()
+BEGIN
+    DECLARE v_doc_active_id BIGINT UNSIGNED;
+    DECLARE v_count INT;
+
+    SET v_doc_active_id = (
+        SELECT ReferenceDataID FROM ReferenceData
+        WHERE DomainName = 'DOCUMENT_STATUS' AND Code = 'ACTIVE'
+    );
+
+    IF fn_is_indicator_member('WORKFLOW_STATUS', 'ACTIVE') <> TRUE
+       OR fn_is_indicator_member('WORKFLOW_STATUS', 'LOCKED') <> FALSE THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Smoke test failed: fn_is_indicator_member does not check indicator membership.';
+    END IF;
+
+    IF fn_is_indicator_id_member(v_doc_active_id, 'DOCUMENT_STATUS') <> TRUE
+       OR fn_is_indicator_id_member(v_doc_active_id, 'WORKFLOW_STATUS') <> FALSE THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Smoke test failed: fn_is_indicator_id_member accepts an ID from another indicator.';
+    END IF;
+
+    IF fn_decode_indicator('SIGNATURE_METHOD', 'TYPED_NAME') <> 'Typed Name'
+       OR fn_decode_indicator('SIGNATURE_METHOD', 'CARRIER_PIGEON') NOT LIKE 'INVALID [%' THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Smoke test failed: fn_decode_indicator does not decode, or hides an unknown code.';
+    END IF;
+
+    SELECT COUNT(*) INTO v_count
+    FROM vw_AuditHistory
+    WHERE EventTypeName LIKE 'INVALID [%'
+       OR AffectedRecordTypeName LIKE 'INVALID [%';
+    IF v_count <> 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Smoke test failed: vw_AuditHistory has audit rows whose codes are not in ReferenceData.';
+    END IF;
+END $$
+DELIMITER ;
+CALL sp__smoke_assert_indicators();
+DROP PROCEDURE sp__smoke_assert_indicators;
+
+
 SELECT 'SMOKE TESTS COMPLETED.' AS Result;

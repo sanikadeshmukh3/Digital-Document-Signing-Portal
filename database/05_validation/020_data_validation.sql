@@ -529,6 +529,75 @@ BEGIN
             SET MESSAGE_TEXT = 'Data validation failed: more than one Signature for a participant.';
     END IF;
 
+    -- ========================================================
+    -- 9. Indicator Value pattern (schema 1.4.0, Principle 11)
+    -- ========================================================
+
+    -- 9a. Values the engine and build depend on, from the domains
+    --     that used to be hard-coded in CHECKs and literals:
+    --     REQUIRED_POLICY(1) + SIGNATURE_METHOD(1) + BUILD_STATUS(3)
+    --     + AUDIT_EVENT_TYPE(14) + AUDIT_RECORD_TYPE(5)
+    --     + DATABASE_OBJECT_TYPE(4) = 28.
+    SELECT COUNT(*) INTO v_count
+    FROM ReferenceData
+    WHERE IsActive = TRUE
+      AND (
+          (DomainName='REQUIRED_POLICY' AND Code IN ('ALL_REQUIRED'))
+       OR (DomainName='SIGNATURE_METHOD' AND Code IN ('TYPED_NAME'))
+       OR (DomainName='BUILD_STATUS' AND Code IN ('STARTED','COMPLETED','FAILED'))
+       OR (DomainName='AUDIT_EVENT_TYPE' AND Code IN (
+              'DOCUMENT_VERSION_CREATED','WORKFLOW_INITIATED','REVIEW_COMPLETED',
+              'ACKNOWLEDGEMENT_COMPLETED','APPROVAL_RECORDED','APPROVAL_REJECTED',
+              'SIGNATURE_RECORDED','WORKFLOW_PROGRESS','WORKFLOW_COMPLETED',
+              'WORKFLOW_REJECTED','WORKFLOW_CANCELLED','WORKFLOW_EXPIRED',
+              'WORKFLOW_STATUS_CHANGED','WORKFLOW_EXPIRY_SCAN'))
+       OR (DomainName='AUDIT_RECORD_TYPE' AND Code IN (
+              'DocumentVersion','Workflow','WorkflowParticipant',
+              'ApprovalDecision','Signature'))
+       OR (DomainName='DATABASE_OBJECT_TYPE' AND Code IN (
+              'VIEW','FUNCTION','PROCEDURE','TRIGGER'))
+      );
+    IF v_count <> 28 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Data validation failed: a 1.4.0 indicator value (REQUIRED_POLICY/SIGNATURE_METHOD/BUILD_STATUS/AUDIT_*/DATABASE_OBJECT_TYPE) is missing or inactive.';
+    END IF;
+
+    -- 9b. Every indicator offers at least one active value, so no
+    --     list of values can come back empty.
+    SELECT COUNT(*) INTO v_count
+    FROM (
+        SELECT DomainName
+        FROM ReferenceData
+        GROUP BY DomainName
+        HAVING SUM(IsActive = TRUE) = 0
+    ) empty_indicator;
+    IF v_count <> 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Data validation failed: an indicator has no active values.';
+    END IF;
+
+    -- 9c. Every DisplayOrder has been assigned (no 0 left over).
+    SELECT COUNT(*) INTO v_count
+    FROM ReferenceData
+    WHERE DisplayOrder = 0;
+    IF v_count <> 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Data validation failed: a ReferenceData row has no DisplayOrder.';
+    END IF;
+
+    -- 9d. Every coded value stored anywhere (20 columns, including
+    --     the code-valued RequiredPolicy, SignatureMethod, EventType,
+    --     AffectedRecordType, BuildStatus, ObjectType) decodes to a member of its
+    --     own indicator. Second line of defence behind the
+    --     indicator triggers; section 6 covers the ID columns only.
+    SELECT COUNT(*) INTO v_count
+    FROM vw_CodedValueIntegrity
+    WHERE IntegrityStatus <> 'VALID';
+    IF v_count <> 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Data validation failed: vw_CodedValueIntegrity reports invalid coded values (SELECT * ... WHERE IntegrityStatus <> ''VALID'').';
+    END IF;
+
     SELECT 'DATA VALIDATION PASSED: seeded content satisfies all invariants.' AS Result;
 END $$
 
