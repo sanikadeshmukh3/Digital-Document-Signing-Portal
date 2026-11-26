@@ -58,6 +58,13 @@ database/01_schema/070_workflow_ui_metadata.sql
 database/02_programability/090_workflow_metadata_view.sql
 database/02_programability/100_get_allowed_workflow_transitions.sql
 database/02_programability/110_fix_workflow_metadata_view.sql
+database/03_security/030_workflow_metadata_grants.sql
+
+# Schema 1.4.0 - Principle 11 (Indicator Value pattern)
+database/01_schema/080_indicator_value_schema.sql
+database/04_seed/040_indicator_value_seed.sql
+database/02_programability/120_indicator_value_programmability.sql
+database/03_security/040_indicator_value_grants.sql
 
 database/03_security/030_workflow_metadata_grants.sql
 
