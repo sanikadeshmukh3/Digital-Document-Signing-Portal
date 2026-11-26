@@ -63,3 +63,8 @@ database/02_programability/110_fix_workflow_metadata_view.sql
 database/05_validation/010_object_validation.sql
 database/05_validation/020_data_validation.sql
 database/05_validation/030_smoke_tests.sql
+
+database/05_validation/040_workflow_metadata_object_validation.sql
+database/05_validation/050_workflow_metadata_data_validation.sql
+database/05_validation/060_workflow_metadata_smoke_tests.sql
+database/05_validation/070_workflow_security_validation.sql
