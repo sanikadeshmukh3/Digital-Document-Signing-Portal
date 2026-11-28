@@ -340,14 +340,12 @@ BEGIN
 
     SELECT COUNT(*)
     INTO v_count
-
     FROM mysql.tables_priv
-
     WHERE Db = DATABASE()
-      AND User = 'document_portal_app'
-      AND Table_name = 'vw_WorkflowTransitionMetadata'
-      AND FIND_IN_SET('Select', Table_priv) > 0;
-
+    AND User = 'document_portal_app'
+    AND LOWER(Table_name) =
+        LOWER('vw_WorkflowTransitionMetadata')
+    AND FIND_IN_SET('Select', Table_priv) > 0;
 
     IF v_count = 0 THEN
         SIGNAL SQLSTATE '45000'
@@ -368,7 +366,8 @@ BEGIN
 
     WHERE Db = DATABASE()
       AND User = 'document_portal_reporter'
-      AND Table_name = 'vw_WorkflowTransitionMetadata'
+      AND LOWER(Table_name) =
+        LOWER('vw_WorkflowTransitionMetadata')
       AND FIND_IN_SET('Select', Table_priv) > 0;
 
 
@@ -391,7 +390,8 @@ BEGIN
 
     WHERE Db = DATABASE()
       AND User = 'document_portal_auditor'
-      AND Table_name = 'vw_WorkflowTransitionMetadata'
+      AND LOWER(Table_name) =
+        LOWER('vw_WorkflowTransitionMetadata')
       AND FIND_IN_SET('Select', Table_priv) > 0;
 
 
@@ -414,7 +414,8 @@ BEGIN
 
     WHERE Db = DATABASE()
       AND User = 'document_portal_admin'
-      AND Table_name = 'WorkflowStatusTransition'
+      AND LOWER(Table_name) =
+        LOWER('WorkflowStatusTransition')
 
       AND FIND_IN_SET('Select', Table_priv) > 0
       AND FIND_IN_SET('Insert', Table_priv) > 0
@@ -441,7 +442,8 @@ BEGIN
 
     WHERE Db = DATABASE()
       AND User = 'document_portal_admin'
-      AND Table_name = 'WorkflowStatusTransition'
+      AND LOWER(Table_name) =
+        LOWER('WorkflowStatusTransition')
       AND FIND_IN_SET('Delete', Table_priv) > 0;
 
 
@@ -464,7 +466,8 @@ BEGIN
 
     WHERE Db = DATABASE()
       AND User = 'document_portal_admin'
-      AND Table_name = 'WorkflowTransitionRole'
+      AND LOWER(Table_name) =
+        LOWER('WorkflowTransitionRole')
 
       AND FIND_IN_SET('Select', Table_priv) > 0
       AND FIND_IN_SET('Insert', Table_priv) > 0
